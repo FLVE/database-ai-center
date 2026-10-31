@@ -1,0 +1,26 @@
+name: M2 checks
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: dbic_test
+          POSTGRES_USER: dbic
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["127.0.0.1:5432:5432"]
+        options: --health-cmd "pg_isready -U dbic -d dbic_test" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.7"
+      - run: uv sync --locked --python 3.12
+      - run: uv run ruff check . && uv run ruff format --check . && uv run mypy
+      - run: uv run python -m pytest -q
+        env:
+          DBIC_TEST_DATABASE_URL: postgresql+psycopg://dbic@127.0.0.1:5432/dbic_test
+          DBIC_HTTP_TESTS: "1"
+      - run: uv run python -m compileall -q src

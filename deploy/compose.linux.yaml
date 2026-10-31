@@ -1,0 +1,5 @@
+# Only DBIC's API receives the Linux host mapping; existing ES containers are untouched.
+services:
+  dbic-api:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "dbic-m2-lock-001",
+    "document": {
+      "@timestamp": "2026-10-31T00:05:00Z",
+      "db": {"type": "mysql", "instance_id": "mysql-lab-01"},
+      "event": {"category": "deadlock", "code": "ER_LOCK_DEADLOCK"},
+      "message": "Synthetic lab event; no SQL text or user data."
+    }
+  },
+  {
+    "id": "dbic-m2-slow-001",
+    "document": {
+      "@timestamp": "2026-10-31T00:10:00Z",
+      "db": {"type": "mysql", "instance_id": "mysql-lab-01"},
+      "event": {"category": "slow_query", "code": "LAB_SLOW_QUERY"},
+      "message": "Synthetic lab event; no SQL text or user data."
+    }
+  }
+]

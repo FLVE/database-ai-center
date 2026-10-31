@@ -1,0 +1,9 @@
+environment: lab
+allowed_instances: [mysql-lab-01]
+allowed_tools: [mysql.health, mysql.lock_chain, mysql.slow_query_summary]
+max_tool_calls: 8
+max_duration_seconds: 90
+per_instance_concurrency: 1
+max_rows: 100
+max_result_bytes: 65536
+allow_mutation: false

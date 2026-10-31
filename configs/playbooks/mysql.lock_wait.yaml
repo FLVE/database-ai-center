@@ -1,0 +1,3 @@
+id: mysql.lock_wait
+version: 1
+required_tools: [mysql.health, mysql.lock_chain]

@@ -1,0 +1,8 @@
+# Registry loading and the least-privilege MySQL diagnostic account arrive in M1.
+instances:
+  - id: mysql-lab-01
+    type: mysql
+    environment: lab
+    version: "8.4"
+    connection_ref: env:MYSQL_LAB_DSN
+    enabled: false

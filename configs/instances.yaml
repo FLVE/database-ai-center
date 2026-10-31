@@ -1,0 +1,7 @@
+instances:
+  - id: mysql-lab-01
+    type: mysql
+    environment: lab
+    version: "8.4"
+    connection_ref: env:MYSQL_LAB_DSN
+    enabled: true

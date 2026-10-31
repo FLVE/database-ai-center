@@ -1,0 +1,143 @@
+name: dbic-lab
+
+x-dbic-env: &dbic-env
+  DBIC_ENV: lab
+  DBIC_PG_PASSWORD: ${DBIC_PG_PASSWORD:?Set DBIC_PG_PASSWORD in root .env}
+  DBIC_API_TOKEN: ${DBIC_API_TOKEN:?Set a random token of at least 24 characters}
+  DBIC_MYSQL_DIAG_PASSWORD: ${MYSQL_DIAG_PASSWORD:-}
+  DBIC_SEARCH_BACKEND: ${DBIC_SEARCH_BACKEND:-null}
+  DBIC_METRICS_BACKEND: ${DBIC_METRICS_BACKEND:-null}
+  DBIC_ELASTIC_URL: ${DBIC_ELASTIC_URL:-}
+  DBIC_ELASTIC_API_KEY: ${DBIC_ELASTIC_API_KEY:-}
+  DBIC_PROMETHEUS_URL: ${DBIC_PROMETHEUS_URL:-}
+  DBIC_PROMETHEUS_TOKEN: ${DBIC_PROMETHEUS_TOKEN:-}
+  DBIC_PROMETHEUS_INSTANCE_LABEL: ${DBIC_PROMETHEUS_INSTANCE_LABEL:-instance}
+  DBIC_PROMETHEUS_INSTANCE_VALUE: ${DBIC_PROMETHEUS_INSTANCE_VALUE:-}
+  DBIC_HISTORY_CA_FILE: ${DBIC_HISTORY_CA_FILE:-}
+
+services:
+  dbic-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: dbic
+      POSTGRES_DB: dbic
+      POSTGRES_PASSWORD: ${DBIC_PG_PASSWORD:?Set DBIC_PG_PASSWORD}
+    volumes:
+      - dbic-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U dbic -d dbic"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  dbic-migrate:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: runtime
+    environment: *dbic-env
+    command: [alembic, upgrade, head]
+    depends_on:
+      dbic-postgres:
+        condition: service_healthy
+
+  dbic-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: runtime
+    environment: *dbic-env
+    ports:
+      - "127.0.0.1:8086:8086"
+    networks:
+      - default
+      - api-host
+    depends_on:
+      dbic-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8086/readyz', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  mysql-lab:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+    volumes:
+      - dbic-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: [CMD-SHELL, "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  test-postgres:
+    profiles: [verify]
+    image: postgres:17
+    environment:
+      POSTGRES_USER: dbic
+      POSTGRES_DB: dbic_test
+      POSTGRES_PASSWORD: ${DBIC_PG_PASSWORD:?Set DBIC_PG_PASSWORD}
+    networks:
+      verification:
+        aliases: [dbic-postgres]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U dbic -d dbic_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  test-mysql:
+    profiles: [verify]
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_HOST: "%"
+    networks:
+      verification:
+        aliases: [mysql-lab]
+    healthcheck:
+      test: [CMD-SHELL, "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  dbic-tests:
+    profiles: [verify]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: verification
+    environment:
+      <<: *dbic-env
+      DBIC_LIVE_TESTS: "1"
+      DBIC_HTTP_TESTS: "1"
+      DBIC_SEARCH_BACKEND: "null"
+      DBIC_METRICS_BACKEND: "null"
+      DBIC_ELASTIC_API_KEY: ""
+      DBIC_PROMETHEUS_TOKEN: ""
+      DBIC_HISTORY_CA_FILE: ""
+      DBIC_TEST_MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+    networks: [verification]
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-mysql:
+        condition: service_healthy
+
+volumes:
+  dbic-pg-data:
+  dbic-mysql-data:
+
+networks:
+  default:
+    internal: true
+  api-host:
+    driver: bridge
+  verification:
+    internal: true
