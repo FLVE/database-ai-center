@@ -10,6 +10,12 @@ M4.3 使用独立 PostgreSQL lab 读取锁等待与 vacuum 统计；M4.4 读取 
 诊断账号的 Profile 摘要。完整启动、验证、限制与发布入口见 [M4 完整验证](docs/m4-final-validation.md)。
 Linux 服务器从 GitHub 拉取并部署的步骤见 [docs/remote-validation.md](docs/remote-validation.md)。
 
+网页界面 V1（0.9.0）随 API 提供：本机升级后打开 **http://127.0.0.1:8086/**，
+输入现有 `.env` 中的 `DBIC_API_TOKEN`，即可选择实例、发起诊断、查看报告/证据和保存反馈。
+Token 仅在当前页面内存中使用，刷新需重新输入。已有任务可用任务 ID 或页面链接打开。
+本次会话列表不等于全部历史记录。部署、验证及已知限制见 [网页验收](docs/web-v1-validation.md)。
+页面采用实例概览、诊断对话框、报告标签页与证据抽屉；参考项目和设计取舍见 [界面研究](docs/web-design-research.md)。
+
 ## 本阶段范围
 
 - Python 3.12、FastAPI、Pydantic v2、SQLAlchemy 2、psycopg 3、Alembic。

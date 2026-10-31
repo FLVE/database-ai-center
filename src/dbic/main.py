@@ -2,12 +2,13 @@ import logging
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel
@@ -23,6 +24,7 @@ from dbic.adapters.persistence.postgres import create_database, database_ready
 from dbic.adapters.persistence.tasks import PostgresTaskStore
 from dbic.adapters.registry import YamlRegistry
 from dbic.api.routes.diagnoses import router as diagnoses_router
+from dbic.api.routes.instances import router as instances_router
 from dbic.api.service import DiagnosticService
 from dbic.core.policy import DATABASE_TOOLS, authorize_instance
 from dbic.core.runner import TaskRunner
@@ -120,7 +122,7 @@ def create_app(
 
     app = FastAPI(
         title="Database AI Center",
-        version="0.8.0",
+        version="0.9.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -159,6 +161,19 @@ def create_app(
             raise HTTPException(401, "Unauthorized", headers={"WWW-Authenticate": "Bearer"})
 
     app.include_router(diagnoses_router, dependencies=[Depends(authorize)])
+    app.include_router(instances_router, dependencies=[Depends(authorize)])
+
+    web_dir = Path(__file__).parent / "web"
+
+    @app.get("/", include_in_schema=False)
+    async def web_index() -> FileResponse:
+        return FileResponse(web_dir / "index.html")
+
+    @app.get("/assets/{name}", include_in_schema=False)
+    async def web_asset(name: str) -> FileResponse:
+        if name not in {"app.js", "ui.js", "styles.css"}:
+            raise HTTPException(404, "Asset not found")
+        return FileResponse(web_dir / name)
 
     @app.middleware("http")
     async def correlation(
@@ -178,6 +193,14 @@ def create_app(
                 return denied
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; script-src 'self'; style-src 'self'; "
+            "connect-src 'self'; img-src 'self' data:; base-uri 'none'; "
+            "form-action 'self'; frame-ancestors 'none'"
+        )
         return response
 
     def error(request: Request, status: int, code: str, message: str) -> JSONResponse:

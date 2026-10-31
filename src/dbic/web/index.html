@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>DBIC · 数据库诊断工作台</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <script type="module" src="/assets/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到调查内容</a>
+    <section id="login-view" class="login-layout" aria-labelledby="login-title">
+      <div class="login-intro">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">D</span
+          ><span>DBIC<small>DATABASE AI CENTER</small></span>
+        </div>
+        <div class="intro-copy">
+          <p class="eyebrow">数据库诊断工作台</p>
+          <h1 id="login-title">数据库调查，<br />从证据到判断。</h1>
+          <p>
+            查看实例状态，追踪检查过程，<br />在同一个工作区核对结论与证据。
+          </p>
+        </div>
+        <div class="evidence-preview" aria-hidden="true">
+          <span>调查</span><i></i><span>证据</span><i></i><span>结论</span>
+        </div>
+        <p class="intro-footer">MySQL · Redis · MongoDB · PostgreSQL · Doris</p>
+      </div>
+      <div class="login-panel">
+        <form id="login-form" class="login-card">
+          <span class="tag">LAB 工作空间</span>
+          <h2>连接诊断中心</h2>
+          <p class="muted">输入当前服务的访问令牌，查看实例与调查报告。</p>
+          <label for="token">访问令牌</label>
+          <input
+            id="token"
+            name="token"
+            type="password"
+            autocomplete="off"
+            required
+            spellcheck="false"
+            placeholder="输入 DBIC_API_TOKEN"
+          />
+          <p class="field-hint">令牌仅在本页使用，刷新或退出后需要重新输入。</p>
+          <button class="primary full" id="login-button" type="submit">
+            进入工作台 <span aria-hidden="true">→</span>
+          </button>
+          <p id="login-error" class="error-text" role="alert"></p>
+          <p class="login-note">
+            使用已有 DBIC_API_TOKEN，非数据库密码或模型 API Key。
+          </p>
+        </form>
+      </div>
+    </section>
+
+    <div id="workspace" class="workspace" hidden>
+      <aside class="sidebar" aria-label="实例与本次会话">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">D</span
+          ><span>DBIC<small>诊断工作台</small></span>
+        </div>
+        <div class="sidebar-heading">
+          <h2>数据库实例</h2>
+          <span id="instance-count" class="count"></span>
+        </div>
+        <nav id="instance-list" aria-label="选择数据库实例"></nav>
+        <p class="sidebar-note">
+          启用表示允许诊断，连接状态以实际检查结果为准。
+        </p>
+        <div class="sidebar-heading session-heading">
+          <h2>本次会话</h2>
+          <span id="session-count" class="count">0</span>
+        </div>
+        <div id="session-list"></div>
+        <form id="lookup-form" class="lookup-form">
+          <label for="task-id">打开已有任务</label>
+          <div class="lookup-row">
+            <input
+              id="task-id"
+              name="task-id"
+              required
+              placeholder="粘贴任务 ID"
+              autocomplete="off"
+              spellcheck="false"
+            /><button type="submit" aria-label="打开任务">→</button>
+          </div>
+        </form>
+        <div class="sidebar-bottom">
+          <span class="tag">仅限 LAB</span>
+          <p>预定义只读检查<br />会话列表仅保留本页打开的任务</p>
+        </div>
+      </aside>
+      <div class="workspace-body">
+        <header class="topbar">
+          <div>
+            <span class="muted">工作空间</span><span class="slash">/</span
+            ><strong>数据库调查</strong>
+          </div>
+          <div class="topbar-actions">
+            <span id="service-status" class="service-status">正在检查服务</span
+            ><button id="reload" class="quiet" type="button">刷新能力</button
+            ><button id="logout" class="quiet" type="button">退出</button>
+          </div>
+        </header>
+        <main id="main" tabindex="-1">
+          <div class="page-heading">
+            <div>
+              <h1>调查工作台</h1>
+              <p class="muted">选择实例、核对证据，记录你的判断。</p>
+            </div>
+            <button id="new-diagnosis" class="primary" type="button">
+              ＋ 新建诊断
+            </button>
+          </div>
+          <div id="notice" class="notice" role="status" hidden></div>
+          <div class="investigation-layout">
+            <dialog
+              id="create-dialog"
+              class="investigation-form"
+              aria-labelledby="investigation-title"
+            >
+              <div class="dialog-header">
+                <div>
+                  <p class="eyebrow">只读诊断</p>
+                  <h2 id="investigation-title">新建诊断</h2>
+                </div>
+                <button
+                  id="close-create"
+                  class="quiet"
+                  type="button"
+                  aria-label="关闭新建诊断"
+                >
+                  关闭 ×
+                </button>
+              </div>
+              <p id="create-notice" class="notice" role="alert" hidden></p>
+              <form id="diagnosis-form">
+                <label for="instance">目标实例</label
+                ><select id="instance" name="instance" required></select>
+                <label for="problem">调查问题</label
+                ><select id="problem" name="problem" required></select>
+                <p id="problem-description" class="field-hint"></p>
+                <div id="history-controls" hidden>
+                  <label class="checkbox-label"
+                    ><input
+                      id="use-window"
+                      type="checkbox"
+                    />关联历史时间窗口</label
+                  >
+                  <div id="window-fields" hidden>
+                    <label for="window-start">开始时间</label
+                    ><input id="window-start" type="datetime-local" /><label
+                      for="window-end"
+                      >结束时间</label
+                    ><input id="window-end" type="datetime-local" />
+                    <p class="field-hint" id="timezone-note"></p>
+                    <p class="field-hint">
+                      最多 24 小时。实时检查仍反映当前状态。
+                    </p>
+                  </div>
+                </div>
+                <div class="scope-note">
+                  <span class="scope-dot" aria-hidden="true"></span>
+                  <p>执行预定义只读检查。缺失证据会保留在报告中。</p>
+                </div>
+                <button id="create-button" class="primary full" type="submit">
+                  开始诊断 <span aria-hidden="true">→</span>
+                </button>
+              </form>
+              <div class="capabilities">
+                <h3>当前可用工具</h3>
+                <ul id="tool-list"></ul>
+                <p id="backend-note" class="field-hint"></p>
+              </div>
+            </dialog>
+            <section class="result-area" aria-label="调查结果">
+              <div id="empty-state" class="panel empty-state">
+                <div class="overview-header">
+                  <div>
+                    <p class="eyebrow">实例概览</p>
+                    <h2 id="overview-name"></h2>
+                    <p id="overview-id" class="mono muted"></p>
+                  </div>
+                  <span id="overview-status"></span>
+                </div>
+                <p id="overview-description" class="overview-description"></p>
+                <div class="overview-body">
+                  <section>
+                    <h3>可以调查什么</h3>
+                    <div id="overview-problems"></div>
+                  </section>
+                  <section class="overview-context">
+                    <h3>诊断范围</h3>
+                    <dl id="overview-meta" class="detail-grid"></dl>
+                    <p class="field-hint">
+                      启用表示允许诊断，连接状态以检查结果为准。
+                    </p>
+                  </section>
+                </div>
+                <div class="overview-footer">
+                  <span class="scope-dot" aria-hidden="true"></span>
+                  <p>
+                    创建调查后，报告、检查证据和人工反馈将在此呈现。已有任务可通过左侧
+                    ID 查找。
+                  </p>
+                </div>
+              </div>
+              <article id="task-view" hidden>
+                <section class="panel task-header">
+                  <div class="task-title-row">
+                    <div>
+                      <p class="eyebrow" id="task-instance"></p>
+                      <h2 id="task-title"></h2>
+                    </div>
+                    <span id="task-status" class="badge"></span>
+                  </div>
+                  <p id="task-description" class="muted"></p>
+                  <div class="task-meta">
+                    <code id="current-task-id"></code
+                    ><button id="refresh-task" class="quiet" type="button">
+                      刷新任务
+                    </button>
+                  </div>
+                  <p id="task-times" class="field-hint"></p>
+                  <p id="poll-status" class="field-hint" role="status"></p>
+                </section>
+                <div class="task-tabs" role="tablist" aria-label="调查内容">
+                  <button
+                    id="tab-report"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="panel-report"
+                    type="button"
+                  >
+                    调查报告
+                  </button>
+                  <button
+                    id="tab-evidence"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="panel-evidence"
+                    tabindex="-1"
+                    type="button"
+                  >
+                    检查与证据
+                    <span id="tab-evidence-count" class="count">0</span>
+                  </button>
+                  <button
+                    id="tab-feedback"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="panel-feedback"
+                    tabindex="-1"
+                    type="button"
+                  >
+                    人工反馈
+                    <span id="tab-feedback-count" class="count">0</span>
+                  </button>
+                </div>
+                <section
+                  id="panel-report"
+                  role="tabpanel"
+                  aria-labelledby="tab-report"
+                  tabindex="0"
+                  class="panel report-section"
+                >
+                  <div class="panel-heading">
+                    <h2>调查报告</h2>
+                    <span id="report-status" class="muted"></span>
+                  </div>
+                  <div id="report-content"></div>
+                </section>
+                <section
+                  id="panel-evidence"
+                  role="tabpanel"
+                  aria-labelledby="tab-evidence"
+                  tabindex="0"
+                  class="panel"
+                  hidden
+                >
+                  <div class="panel-heading">
+                    <h2>检查与证据</h2>
+                    <span id="evidence-count" class="muted"></span>
+                  </div>
+                  <h3 class="section-label">执行记录</h3>
+                  <div id="steps"></div>
+                  <h3 class="section-label evidence-label">归档证据</h3>
+                  <div id="evidence-list" class="evidence-list"></div>
+                </section>
+                <section
+                  id="panel-feedback"
+                  role="tabpanel"
+                  aria-labelledby="tab-feedback"
+                  tabindex="0"
+                  class="panel"
+                  hidden
+                >
+                  <div class="panel-heading">
+                    <h2>人工反馈</h2>
+                    <span class="muted">保留原报告，单独记录确认</span>
+                  </div>
+                  <div class="feedback-layout">
+                    <form id="feedback-form">
+                      <fieldset id="feedback-fields" disabled>
+                        <label for="verdict">报告准确性</label
+                        ><select id="verdict" name="verdict">
+                          <option value="correct">正确</option>
+                          <option value="partial">部分正确</option>
+                          <option value="incorrect">错误</option></select
+                        ><label for="root-cause">已确认根因（选填）</label
+                        ><textarea
+                          id="root-cause"
+                          maxlength="1000"
+                          rows="2"
+                          placeholder="仅填写你已验证的根因"
+                        ></textarea
+                        ><label for="comment">补充说明（选填）</label
+                        ><textarea
+                          id="comment"
+                          maxlength="2000"
+                          rows="3"
+                          placeholder="记录依据或遗漏，不要填写密码、令牌和业务数据"
+                        ></textarea
+                        ><button
+                          id="feedback-button"
+                          class="primary"
+                          type="submit"
+                        >
+                          保存反馈
+                        </button>
+                      </fieldset>
+                    </form>
+                    <section class="feedback-history">
+                      <h3>反馈记录</h3>
+                      <p class="field-hint">反馈独立归档，不覆盖原始报告。</p>
+                      <div id="feedback-list"></div>
+                    </section>
+                  </div>
+                </section>
+              </article>
+            </section>
+          </div>
+          <footer class="page-footer">
+            DBIC · Database AI Center<span
+              >实时快照不代表完整历史 · 缺失证据不等于正常</span
+            >
+          </footer>
+        </main>
+      </div>
+    </div>
+    <dialog id="evidence-dialog" aria-labelledby="evidence-title">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">EVIDENCE DETAIL</p>
+          <h2 id="evidence-title">证据详情</h2>
+        </div>
+        <button
+          id="close-evidence"
+          class="quiet"
+          type="button"
+          aria-label="关闭证据详情"
+        >
+          关闭 ×
+        </button>
+      </div>
+      <div id="evidence-content"></div>
+    </dialog>
+  </body>
+</html>

@@ -18,5 +18,5 @@ def rule_report(task: DiagnosticTask, evidence: list[Evidence], findings: list[F
         recommendations=["结合采样时间核对业务影响；需要历史判断时补充指标和日志。"],
         risks=["仅供诊断，不包含自动修复或会话终止操作。"],
         tools=[e.source for e in evidence],
-        generator_version="0.8.0",
+        generator_version="0.9.0",
     )

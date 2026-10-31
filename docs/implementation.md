@@ -298,6 +298,12 @@ memory_growth 需要后续趋势证据，不使用当前快照代替。
 
 ### M5：巡检与诊断质量
 
+在 M5 前，用户已授权网页界面 V1，详细范围见 [设计](web-v1-plan.md)。
+FastAPI 同源静态资源位于 `src/dbic/web/`，新增实例摘要路由；无运行时前端依赖、无新迁移。
+Playwright 仅用于开发验收，执行 `npm ci && npx playwright install chromium && npm run test:web`。
+真实本机 lab 浏览器验证用 `node scripts/verify_web.mjs`，会归档诊断任务及验收反馈。
+运行与限制见 [网页验收](web-v1-validation.md)。网页上线不代表 M5 或生产权限已开放。
+
 - 定时任务/告警 webhook、任务去重、反馈、历史案例回放、准确性/证据完整性评测、限流及安全审计。
 - 按用户当前顺序，M4 整体验收后开始网页界面；这不自动授权受控修复流程或生产接入。
 

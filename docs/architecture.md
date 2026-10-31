@@ -343,3 +343,16 @@ diag 用户通过固定版本查询及只读 HTTP 获取状态，Profile 严格�
 v2 Profile 在真实数据下报错，因此固定使用经验证的 v1 列表；不升级账号权限。
 仅当前视角/有限保留样本，不宣称全局历史或 HA。详见 [PG 设计](m4-postgresql-plan.md)、
 [Doris 设计](m4-doris-plan.md) 和 [完整验证](m4-final-validation.md)。
+
+## 19. 网页界面 V1
+
+M4 完整验收后，用户授权独立诊断网页（0.9.0）。设计与验收见
+[web-v1-plan.md](web-v1-plan.md)、[web-v1-validation.md](web-v1-validation.md)。
+页面随 FastAPI 同源提供，展示实例、能力、调查任务、报告、脱敏证据和人工反馈。
+新增受相同 Bearer 保护的 `GET /api/v1/instances`，仅返回当前固定 lab 的显示字段、
+Policy 授权结果和 Playbook 问题列表；enabled 不代表连接健康。不返回连接引用和凭据。
+既有任务 API、Port、证据契约与 0002_m1 迁移不变，capabilities.milestone 仍为 M4。
+浏览器 Token 只存内存，刷新需重登，API 数据 no-store；公开 HTML/静态资源不含业务数据。
+任务链接只包含 UUID；本次会话列表仅在内存保存，不是服务器历史列表。
+任务失败或缺失证据按原语义显示，不自动重试创建请求、执行模型建议或开放任意查询。
+第一版沿用单用户 lab 权限，不提供公网登录、多用户/SSO，也不依赖 DBX。

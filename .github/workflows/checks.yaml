@@ -24,3 +24,10 @@ jobs:
           DBIC_TEST_DATABASE_URL: postgresql+psycopg://dbic@127.0.0.1:5432/dbic_test
           DBIC_HTTP_TESTS: "1"
       - run: uv run python -m compileall -q src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:web
