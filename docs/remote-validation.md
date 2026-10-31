@@ -10,7 +10,9 @@ MySQL 8.4 和 PostgreSQL；已有 ES/Kibana 服务、索引及业务数据库不
 API 仅绑定 127.0.0.1:8086，运行库健康、迁移成功，隔离套件 224 passed、1 skipped。
 用户随后完成 ES 合成事件 `--require-search` 验收；Prometheus 保持关闭。
 已有 ES/Kibana 容器保持运行，未重建或修改。SSH 地址、别名和私钥路径不写入公开仓库。
-当前 M3 变更仍是本地开发工作区，不能把它视为远程 M3 已部署。
+用户后续授权发布 M3：应用提交 `b8137f2` 已部署，隔离套件 274 passed、7 skipped，
+MCP 与 ES 回归均通过。升级命令、服务器专用 MCP override 与回退入口见
+[M3 远程发布记录](m3-validation.md#远程发布验收2026-10-31)。
 
 已准备：
 

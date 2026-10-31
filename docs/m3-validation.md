@@ -111,11 +111,49 @@ uv run python -m compileall -q src scripts
 
 本机 API 已构建为 M3，MCP 通过命令环境 `DBIC_MCP_ENABLED=true` 启用，未修改私有 `.env`。
 后续重建若需继续开启，请显式保留该变量或写入自己的 `.env`。本地 Postman 模拟已停止。
-远程服务器仍为已验收的 M2，本次没有修改远程容器，也没有提交或推送 M3 代码。
+上述为本机开发阶段结果；用户后续授权发布与远程升级，执行记录见下节。
 完整隔离套件验证了真实 MySQL/PostgreSQL、MCP 审计和 Agent 报告回读。
 真实模型未配置；Elastic Agent Builder 未实现（架构中为可选）；进程内队列不自动恢复中断任务。
 回退模型/MCP：设 DBIC_AGENT_BACKEND=null、DBIC_MCP_ENABLED=false 后仅重建 API，保留全部数据。
 M4/M5 不在本次范围内。
+
+## 远程发布验收（2026-10-31）
+
+用户完成本机验收后授权发布。应用提交 `b8137f2` 已推送 GitHub 并由服务器拉取。
+[该提交的 CI](https://github.com/FLVE/database-ai-center/actions/runs/41167247382) 通过：
+265 passed、16 skipped；ruff、格式、mypy、编译通过。
+
+在开发机基于该提交构建 Linux amd64 runtime/verification 镜像，传输后校验 SHA256，
+绕过服务器较慢的依赖下载。远程先运行隔离套件：**274 passed、7 skipped，27.60 秒**。
+跳过 6 项独立 Postman 模拟与 1 项独立 DSN 迁移测试；隔离 PostgreSQL 迁移另有实测。
+随后仅重建 DBIC API，健康检查成功，并执行：
+
+```bash
+python3 scripts/verify_m3.py --require-mcp
+python3 scripts/verify_m2.py --skip-suite --require-search \
+  --start 2026-10-31T00:00:00Z --end 2026-10-31T00:30:00Z
+```
+
+两项均 PASS：三个 MCP 工具与 REST 归档证据一致，ES 样例仍可检索。
+慢查询摘要仍明确返回无计时样本的 unavailable；历史任务 partial 符合当前指标后端关闭的配置。
+真实模型仍关闭，未发送外部模型请求。
+
+远程 `.env` 和 `deploy/compose.es.local.yaml` 校验值与部署前一致。
+新增服务器专用 `deploy/compose.m3.local.yaml`，只为 API 设置 `DBIC_MCP_ENABLED: "true"`。
+此本地配置不提交 Git；以后重建 API 须同时保留三个 Compose 文件：
+
+```bash
+docker compose --env-file .env \
+  -f deploy/compose.yaml \
+  -f deploy/compose.es.local.yaml \
+  -f deploy/compose.m3.local.yaml \
+  up -d --no-deps --no-build --pull never --wait dbic-api
+```
+
+上述命令复用已载入镜像；发布新代码时需先构建/载入对应镜像，不要只拉源码而复用旧镜像。
+本次 M2 镜像保留为 `dbic-lab-dbic-api:rollback-m2-2a12984`。如需回退，将该镜像重新
+标记为 `dbic-lab-dbic-api:latest`，使用基础配置和 ES override 重建 API（不带 M3 override），
+再运行 M2 验收；不回退数据库迁移或删除卷。本次升级无新迁移。
 
 协议依据：[MCP ASGI 集成](https://py.sdk.modelcontextprotocol.io/run/asgi/)、
 [OpenAI 函数调用](https://developers.openai.com/api/docs/guides/function-calling)。
