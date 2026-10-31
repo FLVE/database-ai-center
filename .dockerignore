@@ -1,4 +1,5 @@
 .env*
+dist
 .git
 .venv
 **/__pycache__

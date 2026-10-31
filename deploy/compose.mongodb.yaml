@@ -1,0 +1,56 @@
+services:
+  mongodb-lab:
+    profiles: [mongodb]
+    image: &mongodb-image mongo:8.0.34@sha256:b9924c330a8bbc5800fe9c69f04a84e221eca7b28fd049a0354147d9908fa142
+    entrypoint: [sh, /opt/dbic/entrypoint.sh]
+    env_file: ../dist/mongodb-lab/mongodb.env
+    volumes:
+      - type: bind
+        source: ../dist/mongodb-lab/keyfile
+        target: /run/dbic/keyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - ./mongodb/entrypoint.sh:/opt/dbic/entrypoint.sh:ro
+      - ./mongodb/01-diag.js:/docker-entrypoint-initdb.d/01-diag.js:ro
+      - ./mongodb/replica.js:/opt/dbic/replica.js:ro
+      - dbic-mongodb-data:/data/db
+    healthcheck: &mongodb-health
+      # The temporary initialization server binds loopback only.
+      test: [CMD, mongosh, --host, mongodb-lab, --quiet, --eval, "quit(db.adminCommand({ping:1}).ok === 1 ? 0 : 1)"]
+      interval: 5s
+      timeout: 4s
+      retries: 30
+
+  test-mongodb:
+    profiles: [verify]
+    image: *mongodb-image
+    entrypoint: [sh, /opt/dbic/entrypoint.sh]
+    env_file: ../dist/mongodb-test/mongodb.env
+    volumes:
+      - type: bind
+        source: ../dist/mongodb-test/keyfile
+        target: /run/dbic/keyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - ./mongodb/entrypoint.sh:/opt/dbic/entrypoint.sh:ro
+      - ./mongodb/01-diag.js:/docker-entrypoint-initdb.d/01-diag.js:ro
+      - ./mongodb/replica.js:/opt/dbic/replica.js:ro
+    networks:
+      verification:
+        aliases: [mongodb-lab]
+    healthcheck: *mongodb-health
+
+  dbic-tests:
+    env_file:
+      - path: ../dist/mongodb-test/mongodb.env
+        required: false
+    environment:
+      DBIC_MONGODB_TESTS: "1"
+    depends_on:
+      test-mongodb:
+        condition: service_healthy
+
+volumes:
+  dbic-mongodb-data:

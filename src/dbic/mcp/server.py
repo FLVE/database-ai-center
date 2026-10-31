@@ -18,12 +18,18 @@ MCP_TOOLS = {
     "redis_memory_breakdown": "redis.memory_breakdown",
     "redis_slowlog_summary": "redis.slowlog_summary",
     "redis_bigkey_audit_read": "redis.bigkey_audit_read",
+    "mongodb_current_ops_summary": "mongodb.current_ops_summary",
+    "mongodb_replica_health": "mongodb.replica_health",
+    "postgresql_blocking_sessions": "postgresql.blocking_sessions",
+    "postgresql_vacuum_health": "postgresql.vacuum_health",
+    "doris_fe_be_health": "doris.fe_be_health",
+    "doris_query_profile_summary": "doris.query_profile_summary",
 }
 
 
 class DiagnosticMCP(MCPServer[None]):
     def __init__(self, service: Callable[[], DiagnosticService]) -> None:
-        super().__init__("Database AI Center", version="0.5.0")
+        super().__init__("Database AI Center", version="0.8.0")
         self.service = service
 
     async def list_tools(self) -> list[Tool]:
@@ -96,5 +102,35 @@ def create_mcp(service: Callable[[], DiagnosticService]) -> DiagnosticMCP:
     async def redis_bigkey_audit_read(instance_id: Literal["redis-lab-01"]) -> Evidence:
         """Read an existing sanitized audit; never scan Redis keys."""
         return await service().inspect_tool("redis.bigkey_audit_read", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def mongodb_current_ops_summary(instance_id: Literal["mongodb-lab-01"]) -> Evidence:
+        """Read bounded current-operation samples without commands or client metadata."""
+        return await service().inspect_tool("mongodb.current_ops_summary", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def mongodb_replica_health(instance_id: Literal["mongodb-lab-01"]) -> Evidence:
+        """Read single-member lab replica state; this does not establish high availability."""
+        return await service().inspect_tool("mongodb.replica_health", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def postgresql_blocking_sessions(instance_id: Literal["postgresql-lab-01"]) -> Evidence:
+        """Read bounded current lock waits; never cancel or terminate sessions."""
+        return await service().inspect_tool("postgresql.blocking_sessions", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def postgresql_vacuum_health(instance_id: Literal["postgresql-lab-01"]) -> Evidence:
+        """Read tuple estimates and maintenance timestamps; never execute VACUUM."""
+        return await service().inspect_tool("postgresql.vacuum_health", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def doris_fe_be_health(instance_id: Literal["doris-lab-01"]) -> Evidence:
+        """Read current FE reachability and BE counts in the isolated Doris lab."""
+        return await service().inspect_tool("doris.fe_be_health", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def doris_query_profile_summary(instance_id: Literal["doris-lab-01"]) -> Evidence:
+        """Read bounded summaries of diag-owned profiles; no SQL or full profile text."""
+        return await service().inspect_tool("doris.query_profile_summary", instance_id)
 
     return server

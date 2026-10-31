@@ -4,11 +4,13 @@ import time
 from uuid import UUID
 
 from dbic.core.agent import validate_agent_report
+from dbic.core.doris_rules import doris_findings
 from dbic.core.engine import transition_task
 from dbic.core.evidence import normalize
 from dbic.core.history import EVENT_SOURCE, METRIC_SOURCES
 from dbic.core.history_rules import historical_findings
 from dbic.core.models import DiagnosticStep, Evidence, Report, TaskStatus, ToolResult, utc_now
+from dbic.core.mongodb_rules import mongodb_findings
 from dbic.core.planner import plan
 from dbic.core.policy import authorize
 from dbic.core.ports import (
@@ -19,6 +21,7 @@ from dbic.core.ports import (
     MetricsPort,
     TaskStorePort,
 )
+from dbic.core.postgresql_rules import postgresql_findings
 from dbic.core.redis_rules import redis_findings
 from dbic.core.report import rule_report
 from dbic.core.rules import evaluate
@@ -186,6 +189,12 @@ class TaskRunner:
                     realtime_findings = (
                         redis_findings(task, evidence)
                         if task.database_type == "redis"
+                        else mongodb_findings(task, evidence)
+                        if task.database_type == "mongodb"
+                        else postgresql_findings(task, evidence)
+                        if task.database_type == "postgresql"
+                        else doris_findings(task, evidence)
+                        if task.database_type == "doris"
                         else evaluate(rule_problem, evidence).findings
                     )
                     findings = list(realtime_findings)

@@ -27,7 +27,10 @@ from dbic.api.service import DiagnosticService
 from dbic.core.policy import DATABASE_TOOLS, authorize_instance
 from dbic.core.runner import TaskRunner
 from dbic.mcp.server import create_mcp
+from dbic.plugins.doris.diagnostics import DorisDiagnostics
+from dbic.plugins.mongodb.diagnostics import MongoDBDiagnostics
 from dbic.plugins.mysql.diagnostics import MySQLDiagnostics
+from dbic.plugins.postgresql.diagnostics import PostgreSQLDiagnostics
 from dbic.plugins.redis.diagnostics import RedisDiagnostics
 from dbic.settings import Settings
 
@@ -82,12 +85,19 @@ def create_app(
         app.state.readiness = readiness or check_database
         if diagnostics is None:
             registry = YamlRegistry(
-                config.configs_dir / "instances.yaml", redis_enabled=config.redis_enabled
+                config.configs_dir / "instances.yaml",
+                redis_enabled=config.redis_enabled,
+                mongodb_enabled=config.mongodb_enabled,
+                postgresql_enabled=config.postgresql_enabled,
+                doris_enabled=config.doris_enabled,
             )
             store = PostgresTaskStore(engine)
             tools = DiagnosticTools(
                 MySQLDiagnostics(config.mysql_dsn()),
                 RedisDiagnostics(config.redis_diag_password, config.redis_audit_dir),
+                MongoDBDiagnostics(config.mongodb_diag_password),
+                PostgreSQLDiagnostics(config.postgresql_diag_password),
+                DorisDiagnostics(config.doris_diag_password),
             )
             metrics, search = historical_adapters(config)
             app.state.diagnostics = DiagnosticService(
@@ -110,7 +120,7 @@ def create_app(
 
     app = FastAPI(
         title="Database AI Center",
-        version="0.5.0",
+        version="0.8.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,

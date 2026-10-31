@@ -9,6 +9,9 @@ M3 的 MCP、DeepSeek 真实调用已经验收；不能据此宣称 Redis 能力
 
 M4 按数据库分批验收：M4.1 Redis；后续分别设计 MongoDB、PostgreSQL、Doris。
 后续批次各自至少两个可重复 fixture，通过一个批次不代表整个 M4 完成。
+远程 M4.1 复验后，用户明确先完善 M4 再开始网页界面；后续按 M4.2 MongoDB、
+M4.3 PostgreSQL、M4.4 Doris 推进，整体门槛见 [实施计划](implementation.md#剩余批次与完成门槛)。
+本文仍只定义 Redis 契约，不把后续数据库标为已实现。
 
 M4.1 面向 `redis-lab-01` 单节点 lab，回答：当前内存使用是否接近配置上限、
 有哪些内存构成事实、保留的慢命令记录和已有大 Key 审计提供了什么线索。

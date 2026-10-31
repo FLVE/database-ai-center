@@ -13,6 +13,18 @@ class Playbook(Model):
 
 
 PLAYBOOKS = {
+    "cluster_health": Playbook(
+        id="doris.cluster_health",
+        required_tools=["doris.fe_be_health", "doris.query_profile_summary"],
+    ),
+    "maintenance_health": Playbook(
+        id="postgresql.maintenance_health",
+        required_tools=["postgresql.blocking_sessions", "postgresql.vacuum_health"],
+    ),
+    "activity_health": Playbook(
+        id="mongodb.activity_health",
+        required_tools=["mongodb.current_ops_summary", "mongodb.replica_health"],
+    ),
     "lock_wait": Playbook(
         id="mysql.lock_wait", required_tools=["mysql.health", "mysql.lock_chain"]
     ),

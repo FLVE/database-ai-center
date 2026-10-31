@@ -1,6 +1,6 @@
 environment: lab
-allowed_instances: [mysql-lab-01, redis-lab-01]
-allowed_tools: [mysql.health, mysql.lock_chain, mysql.slow_query_summary, redis.memory_breakdown, redis.slowlog_summary, redis.bigkey_audit_read]
+allowed_instances: [mysql-lab-01, redis-lab-01, mongodb-lab-01, postgresql-lab-01, doris-lab-01]
+allowed_tools: [mysql.health, mysql.lock_chain, mysql.slow_query_summary, redis.memory_breakdown, redis.slowlog_summary, redis.bigkey_audit_read, mongodb.current_ops_summary, mongodb.replica_health, postgresql.blocking_sessions, postgresql.vacuum_health, doris.fe_be_health, doris.query_profile_summary]
 max_tool_calls: 8
 max_duration_seconds: 90
 per_instance_concurrency: 1

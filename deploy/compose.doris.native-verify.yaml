@@ -1,0 +1,72 @@
+name: dbic-m4-native-verify
+services:
+  test-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: dbic
+      POSTGRES_DB: dbic_test
+      POSTGRES_PASSWORD: ${DBIC_PG_PASSWORD:?Generate isolated verification credentials}
+    command: [postgres, -c, shared_buffers=32MB, -c, max_connections=30]
+    mem_limit: 256m
+    networks:
+      default:
+        aliases: [dbic-postgres]
+    healthcheck:
+      test: [CMD, pg_isready, -U, dbic, -d, dbic_test]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  test-doris-fe:
+    image: apache/doris:fe-3.0.8@sha256:749afa2be75cd58d54a0bdb3edaa805d5974646f67500f094912f8dbc4a96b8f
+    hostname: doris-fe
+    entrypoint: [bash, /opt/apache-doris/fe/bin/start_fe.sh, --console]
+    volumes:
+      - ./doris/fe.conf:/opt/apache-doris/fe/conf/fe.conf:ro
+    mem_limit: 1g
+    networks:
+      default:
+        aliases: [doris-fe]
+    healthcheck:
+      test: [CMD-SHELL, "curl --noproxy '*' --fail --silent http://127.0.0.1:8030/api/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+  test-doris-be:
+    image: apache/doris:be-3.0.8@sha256:a337e2b17a65c86c22a1205467a825d46dc3380c94ba8024e53eea033641f12e
+    hostname: doris-be
+    entrypoint: [bash, /opt/apache-doris/be/bin/start_be.sh, --console]
+    environment:
+      SKIP_CHECK_ULIMIT: "true"
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
+    volumes:
+      - ./doris/be.conf:/opt/apache-doris/be/conf/be.conf:ro
+    mem_limit: 1200m
+    networks:
+      default:
+        aliases: [doris-be]
+    healthcheck:
+      test: [CMD-SHELL, "curl --noproxy '*' --fail --silent http://127.0.0.1:8040/api/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+  dbic-tests:
+    image: dbic-m4-tests:amd64
+    environment:
+      DBIC_PG_PASSWORD: ${DBIC_PG_PASSWORD:?Generate isolated verification credentials}
+      DBIC_API_TOKEN: ${DBIC_API_TOKEN:?Generate isolated verification credentials}
+      DBIC_DORIS_DIAG_PASSWORD: ${DBIC_DORIS_DIAG_PASSWORD:?Generate isolated verification credentials}
+      DBIC_TEST_DORIS_ROOT_PASSWORD: ${DBIC_TEST_DORIS_ROOT_PASSWORD:?Generate isolated verification credentials}
+      DBIC_DORIS_TESTS: "1"
+    command: [python, -m, pytest, -q, -p, "no:cacheprovider", tests/integration/test_doris_live.py, tests/unit/test_doris.py]
+    mem_limit: 256m
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-doris-fe:
+        condition: service_healthy
+      test-doris-be:
+        condition: service_healthy
+networks:
+  default:
+    internal: true

@@ -256,7 +256,8 @@ M1 增加 `0002_m1` request_id 迁移，默认诊断 schema 为 performance_sche
 
 ### M4：Redis，再扩展 MongoDB/PostgreSQL/Doris
 
-M3 MCP 与 DeepSeek 真实调用已经验收，用户在设计完成后授权 M4.1 实现。
+M3 MCP 与 DeepSeek 真实调用已经验收，M4.1 已完成本机、远程部署及用户复验。
+用户随后明确要求先完善整个 M4，再开始网页界面；以下分批顺序和完成门槛作为后续基线。
 范围见 [M4.1 设计](m4-plan.md)，配置和实际结果见 [M4.1 验收](m4-validation.md)。
 先按 Redis 单节点 lab 交付三个工具和 memory_pressure 闭环，再分批推进其余数据库；
 memory_growth 需要后续趋势证据，不使用当前快照代替。
@@ -267,10 +268,38 @@ memory_growth 需要后续趋势证据，不使用当前快照代替。
 - MongoDB：current_ops/replica_health；PG：blocking_sessions/vacuum_health；Doris：fe_be_health/query_profile_summary。按接口能力渐进交付。
 - **验收**：每种数据库至少 2 个可重复的诊断 fixture；不支持的能力显式返回 unavailable/not_implemented。
 
+#### 剩余批次与完成门槛
+
+| 批次 | 范围 | 当前状态 |
+|---|---|---|
+| M4.1 Redis | memory_breakdown、slowlog_summary、bigkey_audit_read；实时内存压力诊断 | 已验收；真实大 Key 审计源未提供，明确返回 unavailable |
+| M4.2 MongoDB | current_ops_summary、replica_health；8.0 单成员复制集 lab、最小角色 | 本地实现与双架构套件通过；远程发布待执行，见 [验收记录](m4-mongodb-validation.md) |
+| M4.3 PostgreSQL | blocking_sessions、vacuum_health；独立诊断 lab，与 DBIC 元数据 PostgreSQL 分离 | ARM64/AMD64 隔离实库验证通过，见 [记录](m4-final-validation.md) |
+| M4.4 Doris | fe_be_health、query_profile_summary；3.0.8 单 FE/BE、普通账号、固定 v1 Profile 适配 | 原生 ARM64 与原生 AMD64 实库验证通过；AMD64 仿真限制见 [记录](m4-final-validation.md) |
+| M4 整体验收 | 四个批次的证据、报告、权限、REST/MCP 及 MySQL/DeepSeek 回归 | 开发与发布前验证完成，统一发布验收见 [记录](m4-final-validation.md)；后续进入网页界面 |
+
+每批先形成具体设计，说明实际支持的版本和部署拓扑、固定只读命令、脱敏字段、超时/数量限制、
+失败语义及至少两个可重复 fixture，然后实现、实跑并记录验收结果。架构能力矩阵中的远期工具
+不自动成为本次必做项；每批须明确实现与未实现工具，不能只增加 stub 就宣称该数据库已完成。
+数据库版本、权限或 ARM64/AMD64 支持不能验证时记录阻塞，不静默扩大权限或跳过真实验收。
+
+整体完成要求：
+
+1. 每种新增数据库均完成固定工具、确定性规则、证据引用、任务归档和反馈闭环；
+   核心保持无驱动依赖，缺失证据返回 partial/inconclusive/unavailable，不用零值伪装正常。
+2. 每批至少两个真实隔离 fixture，覆盖正常/异常，并补权限、断连、超时、脱敏和跨实例拒绝测试；
+   模拟结果与真实数据库验证分别记录。故障只在独立测试容器中构造并清理。
+3. REST/MCP 与持久化证据一致；原 MySQL、Redis、ES 历史查询和真实 DeepSeek 路径回归通过。
+   新数据库是否接入模型须在各自设计中明确，不自动扩大 MySQL 模型工具白名单。
+4. 本机 Apple Silicon 与远程 Linux 的构建/部署路径可复现；默认私网和最小权限，
+   保留现有 ES/Kibana、元数据库及私有配置，提供关闭新能力和回退方法。
+5. 汇总各批次实际结果、跳过项和限制，再进入网页界面。真实 Redis 审计源缺失继续明确显示，
+   不要求靠合成文件消除 partial，也不把 Cluster、持续扫描、生产接入或 M5 纳入此次补齐。
+
 ### M5：巡检与诊断质量
 
 - 定时任务/告警 webhook、任务去重、反馈、历史案例回放、准确性/证据完整性评测、限流及安全审计。
-- 仅在 M1–M4 稳定后考虑独立 Web UI 和受控修复流程。
+- 按用户当前顺序，M4 整体验收后开始网页界面；这不自动授权受控修复流程或生产接入。
 
 ## 10. API 调试示例
 

@@ -15,15 +15,22 @@ router = APIRouter(prefix="/api/v1/diagnoses")
 
 class CreateDiagnosis(Model):
     instance_id: str = Field(min_length=1, max_length=100)
-    problem_type: Literal["lock_wait", "slow_query", "memory_pressure"]
+    problem_type: Literal[
+        "lock_wait",
+        "slow_query",
+        "memory_pressure",
+        "activity_health",
+        "maintenance_health",
+        "cluster_health",
+    ]
     window: TimeWindow | None = None
     parent_task_id: UUID | None = None
 
     @model_validator(mode="after")
     def historical_window(self) -> Self:
         if self.window:
-            if self.problem_type == "memory_pressure":
-                raise ValueError("Redis historical windows are not supported")
+            if self.problem_type not in {"lock_wait", "slow_query"}:
+                raise ValueError("historical window unsupported for this problem")
             validate_window(self.window)
         return self
 

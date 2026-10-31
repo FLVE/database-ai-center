@@ -1,0 +1,5 @@
+id: doris.cluster_health
+version: 1
+required_tools:
+  - doris.fe_be_health
+  - doris.query_profile_summary

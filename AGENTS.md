@@ -23,4 +23,8 @@
 4. 尽可能在本机真实运行，提供实际测试命令和结果；无法运行时说明原因。
 5. 结束时总结已完成、未完成、风险以及下一阶段入口。
 
-**当前任务：M4.1 实现与验收**（用户在 M4.1 设计完成后授权开始）。范围见 `docs/m4-plan.md`，只增加 Redis 单节点 lab 诊断；不提前实现其他数据库、M5 或生产连接。M3 实现与验收仍见 `docs/m3-plan.md`、`docs/m3-validation.md`。
+**当前任务：完善 M4，再开始网页界面**（用户在远程 M4.1 复验通过后明确指定此顺序）。M4.1 Redis 已验收；按 `docs/implementation.md` 的阶段清单依次推进 M4.2 MongoDB、M4.3 PostgreSQL、M4.4 Doris，每批先补充版本、权限、证据契约与真实测试设计，再实现和验收。M4 全部验收前不开始网页界面，不提前实现 M5 巡检、自动修复或生产连接。Redis 范围仍见 `docs/m4-plan.md`，M3 实现与验收仍见 `docs/m3-plan.md`、`docs/m3-validation.md`。
+
+M4.2 MongoDB、M4.3 PostgreSQL、M4.4 Doris 实现与完整验证入口见 `docs/m4-final-validation.md`；各批设计文件必须与最终适配保持一致。PostgreSQL 必须使用独立诊断目标 lab；Doris 不得为获取 Profile 授予 ADMIN/NODE 权限。发布状态以完整验证记录为准。
+
+用户最新发布授权：先完成剩余所有 M4（PostgreSQL、Doris）并通过整体验证，然后统一 commit/push GitHub，最后升级远程服务器并验收。不要提前单独发布 M4.2/M4.3；若某批真实验证受阻，保留本地改动并说明阻塞，不把未通过的 M4 当作完成发布。此授权不允许改动既有 ES/Kibana、监控或生产数据库。

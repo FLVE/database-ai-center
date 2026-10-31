@@ -31,8 +31,15 @@ def test_health_readiness_and_auth(available):
         assert len(result["databases"]) == 5
         assert result["databases"][0]["status"] == "available"
         assert all(
-            x["status"] == "not_implemented" and x["tools"] == [] for x in result["databases"][2:]
+            x["status"] == "available" and not x["enabled"] and x["tools"] == []
+            for x in result["databases"][1:]
         )
+        assert result["databases"][2] == {
+            "database_type": "mongodb",
+            "status": "available",
+            "enabled": False,
+            "tools": [],
+        }
         assert result["databases"][1] == {
             "database_type": "redis",
             "status": "available",

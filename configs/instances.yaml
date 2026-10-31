@@ -1,4 +1,22 @@
 instances:
+  - id: doris-lab-01
+    type: doris
+    environment: lab
+    version: "3.0.8"
+    connection_ref: env:DORIS_LAB_DSN
+    enabled: true
+  - id: postgresql-lab-01
+    type: postgresql
+    environment: lab
+    version: "17"
+    connection_ref: env:POSTGRESQL_LAB_DSN
+    enabled: true
+  - id: mongodb-lab-01
+    type: mongodb
+    environment: lab
+    version: "8.0"
+    connection_ref: env:MONGODB_LAB_DSN
+    enabled: true
   - id: mysql-lab-01
     type: mysql
     environment: lab

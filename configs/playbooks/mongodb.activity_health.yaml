@@ -1,0 +1,5 @@
+id: mongodb.activity_health
+version: 1
+required_tools:
+  - mongodb.current_ops_summary
+  - mongodb.replica_health

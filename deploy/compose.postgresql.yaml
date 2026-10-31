@@ -1,0 +1,41 @@
+services:
+  postgresql-lab:
+    profiles: [postgresql]
+    image: &pg-image postgres:17.11@sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f
+    env_file: ../dist/postgresql-lab/postgresql.env
+    command: [postgres, -c, max_connections=50, -c, shared_buffers=64MB]
+    volumes:
+      - ./postgresql/01-diag.sh:/docker-entrypoint-initdb.d/01-diag.sh:ro
+      - ./postgresql/diag.sql:/opt/dbic/diag.sql:ro
+      - dbic-postgresql-lab-data:/var/lib/postgresql/data
+    healthcheck: &pg-health
+      test: [CMD, pg_isready, -U, lab_admin, -d, dbic_lab]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  test-postgresql:
+    profiles: [verify]
+    image: *pg-image
+    env_file: ../dist/postgresql-test/postgresql.env
+    command: [postgres, -c, max_connections=50, -c, shared_buffers=64MB]
+    volumes:
+      - ./postgresql/01-diag.sh:/docker-entrypoint-initdb.d/01-diag.sh:ro
+      - ./postgresql/diag.sql:/opt/dbic/diag.sql:ro
+    networks:
+      verification:
+        aliases: [postgresql-lab]
+    healthcheck: *pg-health
+
+  dbic-tests:
+    env_file:
+      - path: ../dist/postgresql-test/postgresql.env
+        required: false
+    environment:
+      DBIC_POSTGRESQL_TESTS: "1"
+    depends_on:
+      test-postgresql:
+        condition: service_healthy
+
+volumes:
+  dbic-postgresql-lab-data:

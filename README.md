@@ -1,10 +1,13 @@
-# Database AI Center — M4.1
+# Database AI Center — M4
 
 基线为 [architecture.md](docs/architecture.md) V2.1 与
 [implementation.md](docs/implementation.md)。M0、M1 本地验收已通过；M2 新增可选历史指标与事件证据。
 M2 已通过远程 ES 合成事件验收；M3 新增可选 Agent 与 MCP，见 [docs/m3-validation.md](docs/m3-validation.md)。
 M4.1 增加 Redis 8.4 lab 的内存压力、慢日志摘要和已有大 Key 审计读取；
-启用与验收见 [docs/m4-validation.md](docs/m4-validation.md)，其余数据库仍未实现。
+启用与验收见 [docs/m4-validation.md](docs/m4-validation.md)。M4.2 增加 MongoDB 单成员复制集
+的当前操作摘要和复制集健康，见 [MongoDB 验收](docs/m4-mongodb-validation.md)；
+M4.3 使用独立 PostgreSQL lab 读取锁等待与 vacuum 统计；M4.4 读取 Doris FE/BE 状态和
+诊断账号的 Profile 摘要。完整启动、验证、限制与发布入口见 [M4 完整验证](docs/m4-final-validation.md)。
 Linux 服务器从 GitHub 拉取并部署的步骤见 [docs/remote-validation.md](docs/remote-validation.md)。
 
 ## 本阶段范围
@@ -21,11 +24,13 @@ Linux 服务器从 GitHub 拉取并部署的步骤见 [docs/remote-validation.md
 - Prometheus 固定指标、Elasticsearch `db-events-lab` 结构化事件，只读且默认关闭。
 - 带时间窗的任务追加两份历史证据；历史源失败仍保留实时诊断结果并标为 partial。
 - 可选 OpenAI 兼容函数调用适配器，仅提出有证据引用的预定义只读调查建议；失败回退规则报告。
-- 可选 `/mcp/` Streamable HTTP 入口，三个 MySQL 工具与三个按部署授权启用的 Redis 工具。
+- 可选 `/mcp/` Streamable HTTP 入口，三个 MySQL 工具与按部署授权启用的三个 Redis、两个 MongoDB 工具。
 - Redis 默认关闭，问题类型 memory_pressure；不扫描 Key、不运行任意命令、不调用模型。
+- MongoDB 默认关闭，问题类型 activity_health；仅固定只读观察，不读取业务文档、不调用模型。
 
 运行库还包括 uvicorn、pydantic-settings、PyMySQL[rsa]、PyYAML 和 HTTPX；
 M3 新增官方 MCP SDK（锁定 2.3.0）；M4.1 新增 redis-py（锁定 8.1.0）。
+M4.2 新增 PyMongo 4.19.0（传递依赖 dnspython 2.9.1），其他库版本保持原锁定值。
 HTTPX 仍用于历史后端和模型协议；未引入 Agent 框架。
 MCP SDK 的依赖包含 HTTPX2，开发依赖为 pytest、ruff、mypy。
 本地安装使用 `uv sync --locked`；Docker 使用 uv 0.11.7 与 `uv sync --frozen` 安装锁定依赖。
@@ -130,7 +135,10 @@ CI 提供隔离 PostgreSQL 17 服务并执行此测试；trust 认证仅用于�
 历史源不可用、采样缺口、截断均显式标注；不能据此确认精确慢日志增长或根因。
 
 M3 的 Agent 与 MCP 默认关闭；真实模型接入、模型质量和生产可靠性未由模拟测试证明。
-下一阶段是 M4 数据库能力扩展，须单独授权，不自动开始。
+用户已明确先完善 M4，再开始网页界面。M4.1 Redis 已通过本机和远程验收；
+后续依次推进 MongoDB、PostgreSQL、Doris，每批先设计再实现和验收。
+完整阶段与完成门槛见 [实施计划](docs/implementation.md#剩余批次与完成门槛)，
+目前不把 Redis 单批通过视为整个 M4 完成。
 
 停止服务用 `docker compose --env-file .env -f deploy/compose.yaml stop`，保留卷。
 M0 新文件可整体移除回退；不要用 `down -v` 清除已有实验数据。迁移 downgrade 会删除

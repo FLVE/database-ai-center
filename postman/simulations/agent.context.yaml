@@ -17,6 +17,20 @@ claims:
     verification: postman whoami returned no account details.
     reason: This local repository fixture has no cloud workspace or publishing dependency.
 assumptions:
+  - id: m4-final-mysql-provider-regression
+    status: supported
+    claim: PostgreSQL and Doris routing preserve the existing MySQL model success and failure behavior.
+    reason: Both request dialects passed success, auth, throttling, unavailable, timeout and forged-reference scenarios. New database types use NullAgent and separate real database tests.
+    verification: 2026-10-31; final host suite 447 passed, 23 skipped; two complete runs recorded 24 HTTP requests. Real provider deployment verification remains separate.
+    source: tests/integration/test_agent_simulation.py; tests/unit/test_remaining_m4_api.py; dist/m4-full-simulation.ndjson (ignored local log)
+    updated_at: "2026-10-31"
+  - id: m42-mysql-provider-regression
+    status: supported
+    claim: MongoDB routing additions preserve the existing MySQL model success and fallback behavior in the local scenarios.
+    reason: Both request dialects passed the six existing HTTP scenarios; MongoDB uses NullAgent and is independently tested with a real isolated MongoDB. This does not revalidate the real DeepSeek service.
+    verification: 2026-10-31; host suite 394 passed, 18 skipped included 12 model simulation cases. The simulation log recorded 12 POST requests across /v1/chat/completions and /beta/chat/completions.
+    source: tests/integration/test_agent_simulation.py; tests/unit/test_mongodb_api.py; dist/m42-agent-simulation.ndjson (local ignored log)
+    updated_at: "2026-10-31"
   - id: m4-mysql-provider-regression
     status: supported
     claim: The MySQL model adapter retains bounded suggestions and rule fallback for both request dialects during M4.1 changes.
@@ -25,6 +39,10 @@ assumptions:
     source: tests/integration/test_agent_simulation.py; postman/mocks/llm/default.js; dist/m4-simulation.ndjson (local ignored run log)
     updated_at: "2026-10-31"
 fingerprints:
+  - id: m42-working-tree
+    date: "2026-10-31"
+    commit: 8ce7178 plus uncommitted M4 roadmap and M4.2 implementation
+    cli: "1.74.0"
   - id: m4-working-tree
     date: "2026-10-31"
     commit: bc26f16 plus uncommitted M4.1 changes

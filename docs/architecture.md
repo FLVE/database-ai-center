@@ -316,4 +316,30 @@ Redis 8.4.8、redis-py 8.1.0 实测使用 RESP2、禁用客户端元数据上报
 账号仅允许 PING、INFO、SLOWLOG GET，默认用户关闭，不授予任意 Key 权限。
 启动初期发现 dataset 统计下溢时将不一致组成项标为缺失并记录 limitation，
 保留有效总内存/限额，不将异常值改成零或用于结论。当前快照、保留慢日志与导入审计分开表述。
-本机配置和实际验收范围见 [m4-validation.md](m4-validation.md)，不代表远程已部署 M4。
+本机配置及远程 M4.1 部署验收见 [m4-validation.md](m4-validation.md)。
+用户明确要求先完成整个 M4，再开始网页界面；剩余数据库的分批顺序与整体门槛见
+[实施计划](implementation.md#剩余批次与完成门槛)。分批通过不代表整个 M4 已完成。
+
+## 17. M4.2 MongoDB 契约落地说明
+
+MongoDB 8.0 单成员 dbic-rs lab 新增 current_ops_summary、replica_health 两个工具，
+问题类型 activity_health；通过原 REST/MCP、Policy、Runner 和 PostgreSQL 归档。
+默认禁用；非空 window、额外命令和跨类型问题拒绝。证据仅包含有限操作样本和成员状态，
+不包含查询正文、命名空间、客户端地址或业务文档。只读账号为自定义最小角色，
+初始化管理员不传给 API；MongoDB 采用 NullAgent，MySQL 模型契约不变。
+单成员与采样覆盖限制导致 partial 是正常报告语义，不推断高可用或完整历史。
+应用版本 0.6.0，capabilities.milestone 仍为 M4，无新增迁移。
+设计见 [MongoDB 设计](m4-mongodb-plan.md)，实际结果见 [验收记录](m4-mongodb-validation.md)。
+
+## 18. M4.3/M4.4 契约落地说明
+
+应用 0.8.0 新增 PostgreSQL maintenance_health 与 Doris cluster_health，均两个固定只读工具，
+复用既有 Port、REST/MCP、任务和证据持久化；无新迁移。默认禁用，lab 与元数据主存储分离，
+不开放 SQL/命令、维护操作、外部连接串或历史 window。两种数据库使用 NullAgent。
+
+PG17.11 使用 CONNECT + pg_read_all_stats、只读事务与服务端超时，返回 PID/阻塞关系及有界
+tuple 统计；不返回 SQL、表名，不把统计估算解释为物理膨胀。Doris3.0.8 固定单 FE/BE，普通
+diag 用户通过固定版本查询及只读 HTTP 获取状态，Profile 严格筛选自身记录后只保留耗时/状态。
+v2 Profile 在真实数据下报错，因此固定使用经验证的 v1 列表；不升级账号权限。
+仅当前视角/有限保留样本，不宣称全局历史或 HA。详见 [PG 设计](m4-postgresql-plan.md)、
+[Doris 设计](m4-doris-plan.md) 和 [完整验证](m4-final-validation.md)。

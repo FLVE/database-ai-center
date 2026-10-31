@@ -1,0 +1,3 @@
+id: postgresql.maintenance_health
+version: 1
+required_tools: [postgresql.blocking_sessions, postgresql.vacuum_health]

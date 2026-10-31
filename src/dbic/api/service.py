@@ -29,8 +29,8 @@ class DiagnosticService:
             raise PermissionError("instance is not allowed")
         authorize_instance(instance)
         playbook = plan(problem_type, database_type=instance.type)
-        if instance.type == "redis" and window is not None:
-            raise UnsupportedDiagnosis("Redis historical windows are not supported")
+        if instance.type != "mysql" and window is not None:
+            raise UnsupportedDiagnosis("historical windows are only supported for MySQL")
         for tool_id in playbook.required_tools:
             authorize(instance, tool_id)
         if parent_task_id:

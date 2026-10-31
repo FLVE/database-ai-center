@@ -78,7 +78,7 @@ def main():
     expected = names | {
         tool.replace(".", "_")
         for db in capabilities["databases"]
-        if db["database_type"] == "redis"
+        if db["database_type"] in {"redis", "mongodb", "postgresql", "doris"}
         for tool in db["tools"]
     }
     require(

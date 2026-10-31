@@ -1,0 +1,88 @@
+services:
+  doris-init:
+    profiles: [doris]
+    image: dbic-lab-dbic-api
+    env_file: ../dist/doris-lab/doris.env
+    volumes:
+      - ../scripts/init_doris_lab.py:/opt/dbic/init_doris_lab.py:ro
+    command: [python, /opt/dbic/init_doris_lab.py, --bootstrap]
+    depends_on:
+      doris-fe:
+        condition: service_healthy
+      doris-be:
+        condition: service_healthy
+  doris-fe:
+    profiles: [doris]
+    image: &fe apache/doris:fe-3.0.8@sha256:749afa2be75cd58d54a0bdb3edaa805d5974646f67500f094912f8dbc4a96b8f
+    hostname: doris-fe
+    entrypoint: [bash, /opt/apache-doris/fe/bin/start_fe.sh, --console]
+    volumes:
+      - ./doris/fe.conf:/opt/apache-doris/fe/conf/fe.conf:ro
+      - dbic-doris-fe-data:/opt/apache-doris/fe/doris-meta
+    mem_limit: 1g
+    healthcheck: &fe-health
+      test: [CMD-SHELL, "curl --noproxy '*' --fail --silent http://127.0.0.1:8030/api/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+  doris-be:
+    profiles: [doris]
+    image: &be apache/doris:be-3.0.8@sha256:a337e2b17a65c86c22a1205467a825d46dc3380c94ba8024e53eea033641f12e
+    hostname: doris-be
+    # Tiny lab fixtures only; leave the shared host's kernel and swap settings intact.
+    environment:
+      SKIP_CHECK_ULIMIT: "true"
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
+    entrypoint: [bash, /opt/apache-doris/be/bin/start_be.sh, --console]
+    volumes:
+      - ./doris/be.conf:/opt/apache-doris/be/conf/be.conf:ro
+      - dbic-doris-be-data:/opt/apache-doris/be/storage
+    mem_limit: 1200m
+    healthcheck: &be-health
+      test: [CMD-SHELL, "curl --noproxy '*' --fail --silent http://127.0.0.1:8040/api/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+  test-doris-fe:
+    profiles: [verify]
+    image: *fe
+    hostname: doris-fe
+    entrypoint: [bash, /opt/apache-doris/fe/bin/start_fe.sh, --console]
+    volumes:
+      - ./doris/fe.conf:/opt/apache-doris/fe/conf/fe.conf:ro
+    networks:
+      verification:
+        aliases: [doris-fe]
+    mem_limit: 1g
+    healthcheck: *fe-health
+  test-doris-be:
+    profiles: [verify]
+    image: *be
+    hostname: doris-be
+    environment:
+      SKIP_CHECK_ULIMIT: "true"
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
+    entrypoint: [bash, /opt/apache-doris/be/bin/start_be.sh, --console]
+    volumes:
+      - ./doris/be.conf:/opt/apache-doris/be/conf/be.conf:ro
+    networks:
+      verification:
+        aliases: [doris-be]
+    mem_limit: 1200m
+    healthcheck: *be-health
+  dbic-tests:
+    env_file:
+      - path: ../dist/doris-test/doris.env
+        required: false
+    environment:
+      DBIC_DORIS_TESTS: "1"
+    depends_on:
+      test-doris-fe:
+        condition: service_healthy
+      test-doris-be:
+        condition: service_healthy
+volumes:
+  dbic-doris-fe-data:
+  dbic-doris-be-data:

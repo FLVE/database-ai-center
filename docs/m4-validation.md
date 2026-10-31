@@ -49,9 +49,8 @@ Redis 不映射宿主端口；API 仍为 127.0.0.1:8086。Redis 数据仅作易�
 已检查 Linux ARM64 和 AMD64 manifest。
 客户端使用 RESP2、driver_info=None、零重试；实测 diag 无额外 CLIENT SETINFO 权限需求。
 
-远程若后续部署，必须继续保留既有 ES 与 M3 两个 override 文件；不能复制本机命令后丢掉它们。
-本机验收及用户复验通过后，用户已授权提交并推送本批次源码。
-源码发布不包含远程 M4 部署，服务器上的 M3/DeepSeek 保持原状。
+远程重建必须继续保留既有 ES 与 M3 两个 override 文件；不能复制本机命令后丢掉它们。
+本机验收及用户复验通过后，源码已推送，随后按用户授权完成远程 M4.1 升级，结果见下节。
 
 ## API 与报告
 
@@ -141,4 +140,33 @@ used_memory=1366792、overhead=1370840 的不一致组合。适配器移除不�
 关闭功能不回退 Schema，历史 Redis 报告仍能读取。
 本机另外保留 `dbic-lab-dbic-api:rollback-m3-local`（既有 b8137f2 的 AMD64 M3 镜像，
 不是当前运行容器的逐字节快照）；需要回退整个应用时应先核对目标平台与配置。
-后续入口为本次代码审核/远程 M4.1 发布验收；其他数据库和 Redis 模型建议另立阶段。
+后续入口为 M4.2 MongoDB 设计与实现；完整顺序见 implementation.md。
+Redis 模型建议不因扩展其他数据库而自动启用。
+
+## 远程 M4.1 验收记录（2026-10-31）
+
+部署源码为 `8ce7178`，GitHub CI 成功。Linux AMD64 隔离套件实际结果为
+349 passed、13 skipped，35.07 秒；跳过项为 12 项独立 Postman 模拟与 1 项 DSN 迁移入口，
+真实数据库测试包含迁移验证。测试结束后 test-postgres/test-mysql/test-redis 均停止。
+
+`verify_m4.py --require-mcp`、`verify_m3.py --require-mcp`、
+`verify_m2.py --skip-suite --require-search --start 2026-10-31T00:00:00Z --end 2026-10-31T00:30:00Z`
+及 `verify_agent.py` 均通过；healthz/readyz 正常。用户再次运行 M4 和 Agent 脚本也通过。
+Redis 归档三条证据，三个 MCP 工具与 REST 回读一致；缺少真实审计文件，
+audit=unavailable、任务 partial、agent=disabled 均符合设计。
+MySQL 两类诊断的真实 DeepSeek 调用成功，建议未自动执行；ES 验证使用既有 lab 事件，
+不代表已验证真实业务日志采集或指标源。
+
+只重建 DBIC API 并新增 Redis lab。升级前后确认既有 PostgreSQL、MySQL、ES、Kibana 和
+监控容器 ID 未变；原 `.env`、ES/M3 override 哈希未变。API 仅绑定 127.0.0.1:8086，
+Redis 不映射宿主端口，API 不获得测试管理员凭据。保留回退镜像
+`dbic-lab-dbic-api:rollback-m3-447a9b8`。
+
+远程后续重建 API 要保留两份 env 和三个 Compose 文件；以下命令使用已准备好的本机镜像，
+不会自行构建或下载新版本：
+
+```bash
+docker compose --env-file .env --env-file dist/redis-lab/redis.env \
+  -f deploy/compose.yaml -f deploy/compose.es.local.yaml -f deploy/compose.m3.local.yaml \
+  up -d --no-deps --no-build --pull never --force-recreate --wait --wait-timeout 120 dbic-api
+```

@@ -1,0 +1,18 @@
+services:
+  dbic-tests:
+    platform: linux/amd64
+    image: dbic-m4-tests:amd64
+  test-postgres:
+    platform: linux/amd64
+  test-mysql:
+    platform: linux/amd64
+  test-redis:
+    platform: linux/amd64
+  test-mongodb:
+    platform: linux/amd64
+  test-postgresql:
+    platform: linux/amd64
+  test-doris-fe:
+    platform: linux/amd64
+  test-doris-be:
+    platform: linux/amd64

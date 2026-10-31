@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     redis_enabled: bool = False
     redis_diag_password: SecretStr | None = None
     redis_audit_dir: Path | None = None
+    mongodb_enabled: bool = False
+    mongodb_diag_password: SecretStr | None = None
+    postgresql_enabled: bool = False
+    postgresql_diag_password: SecretStr | None = None
+    doris_enabled: bool = False
+    doris_diag_password: SecretStr | None = None
     search_backend: Literal["null", "elastic"] = "null"
     metrics_backend: Literal["null", "prometheus"] = "null"
     elastic_url: str = Field(default="", repr=False)

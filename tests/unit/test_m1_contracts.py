@@ -27,7 +27,13 @@ def test_yaml_assets_match_executable_defaults():
     policy = yaml.safe_load(Path("configs/policies.yaml").read_text())
     assert set(policy["allowed_tools"]) == TOOLS
     assert policy["allow_mutation"] is False
-    assert policy["allowed_instances"] == ["mysql-lab-01", "redis-lab-01"]
+    assert policy["allowed_instances"] == [
+        "mysql-lab-01",
+        "redis-lab-01",
+        "mongodb-lab-01",
+        "postgresql-lab-01",
+        "doris-lab-01",
+    ]
     assert policy["max_tool_calls"] == 8 and policy["max_duration_seconds"] == 90
 
 
