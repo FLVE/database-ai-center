@@ -1,8 +1,9 @@
 FROM python:3.12-slim AS runtime
+COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /usr/local/bin/
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY src ./src
-RUN pip install --no-cache-dir uv==0.11.7 && uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY configs ./configs
@@ -16,5 +17,6 @@ USER root
 RUN uv sync --frozen
 COPY tests ./tests
 COPY scripts ./scripts
+COPY deploy ./deploy
 USER dbic
 CMD ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]

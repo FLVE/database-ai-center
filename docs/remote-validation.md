@@ -42,6 +42,50 @@ python3 scripts/package_release.py dist/dbic-m2-linux-20261031.tar.gz
 不上传 Mac arm64 虚拟环境或本机实验库数据。脚本输出包的 SHA256。
 以后添加业务配置到源码目录时，仍须审阅内容是否适合部署；文件过滤不等于通用密钥扫描。
 
+## 构建下载受限时
+
+Dockerfile 使用同版本的官方 uv 二进制镜像，依据
+[uv Docker 集成说明](https://docs.astral.sh/uv/guides/integration/docker/)。
+若 BuildKit 访问 Docker Hub 的认证端点超时，可以先使用 Docker daemon 拉取基础镜像：
+
+```bash
+docker pull python:3.12-slim
+docker pull ghcr.io/astral-sh/uv:0.11.7
+```
+
+如果服务器从 PyPI 下载依赖很慢，可以在网络正常的开发机为目标架构构建镜像，再传输
+到服务器。以下示例针对 Linux x86_64，不能直接使用 Mac arm64 镜像：
+
+```bash
+mkdir -p dist
+docker build --platform linux/amd64 --target runtime -t dbic-remote-runtime:m2-amd64 -f deploy/Dockerfile .
+docker build --platform linux/amd64 --target verification -t dbic-remote-validation:m2-amd64 -f deploy/Dockerfile .
+docker image save -o dist/dbic-m2-amd64-images.tar dbic-remote-runtime:m2-amd64 dbic-remote-validation:m2-amd64
+gzip dist/dbic-m2-amd64-images.tar
+```
+
+构建前核对工作区和目标提交，不包含 `.env`。
+通过 SSH/SCP 传输归档并核对两端 SHA256。服务器载入后，只给 DBIC 自有镜像打标签：
+
+```bash
+docker load -i dist/dbic-m2-amd64-images.tar.gz
+docker tag dbic-remote-runtime:m2-amd64 dbic-lab-dbic-api:latest
+docker tag dbic-remote-runtime:m2-amd64 dbic-lab-dbic-migrate:latest
+docker tag dbic-remote-validation:m2-amd64 dbic-lab-dbic-tests:latest
+```
+
+若首次安装已生成 `.env`、启动两个运行库并创建 diag，但中断在 API 构建阶段，
+保留已有凭据和账号，从这里恢复；不要重复执行首次初始化或 `setup_mysql_lab.py`：
+
+```bash
+docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.linux.yaml up -d --no-build --pull never --wait --wait-timeout 180 dbic-api
+python3 scripts/verify_m2.py --skip-suite
+docker compose --env-file .env -f deploy/compose.yaml --profile verify run --rm --pull never dbic-tests
+```
+
+最后一条使用已经载入的测试镜像，因此不能附加 `--build`。它仍在隔离的真实数据库和
+HTTP socket 上执行测试，并不以本机单测代替远程验收。
+
 ## 首次部署与基础验证
 
 需要可访问该 SSH 主机的终端。服务器须已有本地 Docker Engine、支持 `up --wait` 的

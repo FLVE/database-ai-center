@@ -22,6 +22,7 @@ Linux 服务器从 GitHub 拉取并部署的步骤见 [docs/remote-validation.md
 运行库还包括 uvicorn、pydantic-settings、PyMySQL[rsa]、PyYAML 和 HTTPX；
 M2 将 HTTPX 从开发依赖提升为运行依赖，没有新增 ES/LLM SDK。开发依赖为 pytest、ruff、mypy。
 本地安装使用 `uv sync --locked`；Docker 使用 uv 0.11.7 与 `uv sync --frozen` 安装锁定依赖。
+Dockerfile 从官方 `ghcr.io/astral-sh/uv:0.11.7` 镜像复制 uv，避免另行通过 pip 下载 uv 安装包。
 
 ## Mac Apple Silicon / OrbStack 启动
 
