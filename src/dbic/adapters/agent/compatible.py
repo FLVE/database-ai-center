@@ -1,12 +1,16 @@
 import asyncio
 import json
+import logging
 
 import httpx
 
+from dbic.adapters.agent.deepseek import deepseek_schema
 from dbic.core.models import AgentAdvice, DiagnosticTask, Evidence, Finding, Report
 from dbic.core.policy import TOOLS
 from dbic.core.report import rule_report
 from dbic.settings import Settings
+
+logger = logging.getLogger("dbic.agent")
 
 SYSTEM = (
     "You suggest read-only follow-up checks for a MySQL lab. Use propose_checks exactly once. "
@@ -80,6 +84,22 @@ class CompatibleAgentRuntime:
             "max_completion_tokens": 1024,
             "store": False,
         }
+        if self.settings.llm_provider == "deepseek":
+            body.pop("parallel_tool_calls")
+            body.pop("store")
+            body["max_tokens"] = body.pop("max_completion_tokens")
+            body["thinking"] = {"type": "disabled"}
+            body["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "propose_checks",
+                        "description": "Propose at most three read-only checks; no execution.",
+                        "parameters": deepseek_schema(),
+                        "strict": True,
+                    },
+                }
+            ]
         key = self.settings.llm_api_key
         assert key is not None
         async with asyncio.timeout(self.settings.llm_timeout_seconds):
@@ -96,6 +116,11 @@ class CompatibleAgentRuntime:
                     json=body,
                 ) as response:
                     if response.status_code != 200:
+                        logger.warning(
+                            "agent provider=%s http_status=%d",
+                            self.settings.llm_provider,
+                            response.status_code,
+                        )
                         raise RuntimeError("agent backend rejected request")
                     data = bytearray()
                     async for chunk in response.aiter_bytes():

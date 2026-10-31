@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     prometheus_instance_value: str = Field(default="", max_length=256)
     history_ca_file: str | None = None
     agent_backend: Literal["null", "openai_compatible"] = "null"
+    llm_provider: Literal["openai_compatible", "deepseek"] = "openai_compatible"
     llm_base_url: str = Field(default="", repr=False)
     llm_api_key: SecretStr | None = None
     llm_model: str = Field(default="", max_length=128)

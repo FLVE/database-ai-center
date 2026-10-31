@@ -34,3 +34,12 @@
 MCP 单工具请求创建内部 `tool:<tool_id>` 任务，REST 创建问题类型仍仅 lock_wait/slow_query。
 新增依赖为官方 MCP SDK，HTTP 客户端复用 HTTPX；不引入特定 Agent 框架。
 真实模型服务未指定或无凭据时，用本地协议模拟验证，不把模拟通过称为真实模型验收。
+
+## DeepSeek 接入补充
+
+用户选择 DeepSeek 并在服务器配置 Key 后，增加 DBIC_LLM_PROVIDER=deepseek 参数模式。
+仅调整适配器的请求参数和服务端 schema 方言；核心策略、Port、诊断 API 和迁移不变。
+使用 /beta 严格工具调用、非思考模式、max_tokens；不发送未声明支持的 store、parallel_tool_calls。
+展开 schema 引用、移除服务端不支持的数组长度字段，但本地 Pydantic 限额继续强制执行。
+验收：两种方言的模拟故障矩阵、负面引用/数量校验、远程两个诊断场景 agent_status=ok，
+MCP 与 ES 回归。模型调用不向业务库写入数据，建议仍不自动执行。

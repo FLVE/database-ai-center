@@ -42,6 +42,7 @@ python3 scripts/verify_m3.py --require-mcp
 
 ```dotenv
 DBIC_AGENT_BACKEND=openai_compatible
+DBIC_LLM_PROVIDER=openai_compatible
 DBIC_LLM_BASE_URL=https://YOUR_PROVIDER/v1
 DBIC_LLM_MODEL=YOUR_MODEL
 DBIC_LLM_API_KEY=
@@ -52,6 +53,25 @@ base URL 不带 `/chat/completions`，适配器追加该路径。模型须支持
 tools/forced function/strict schema/parallel_tool_calls=false/max_completion_tokens/store=false。
 不支持该子集的提供商返回错误时回退规则报告。公网必须 HTTPS，TLS 校验不关闭；本地 lab
 可使用 `http://host.docker.internal:<port>/v1`。没有默认模型或默认外部 URL，不自动启用云服务。
+
+DeepSeek 使用独立参数适配（不增加 SDK 依赖），配置为：
+
+```dotenv
+DBIC_AGENT_BACKEND=openai_compatible
+DBIC_LLM_PROVIDER=deepseek
+DBIC_LLM_BASE_URL=https://api.deepseek.com/beta
+DBIC_LLM_MODEL=deepseek-flash
+DBIC_LLM_API_KEY=
+DBIC_LLM_TIMEOUT_SECONDS=8
+```
+
+严格工具调用使用官方 `/beta` 端点、`max_tokens` 与非思考模式；不发送该服务未声明的
+`store`、`parallel_tool_calls`、`max_completion_tokens`。不能据此保证提供商不保留请求。
+Schema 去除其不支持的数组长度限制，数量、证据引用、额外字段仍由本地 Pydantic/Policy 校验。
+重建 API 后运行 `python3 scripts/verify_agent.py`，会发起两次真实模型请求，必须得到
+`agent_status=ok` 才通过；规则回退不能冒充模型通过。该验证会产生模型调用费用。
+协议依据：[DeepSeek 工具调用](https://api-docs.deepseek.com/guides/tool_calls/)、
+[Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/)。
 
 只发送证据元数据；原始 payload、日志、SQL、自由文本不发送。最多一轮 propose_checks，
 最多三条建议，每条引用当前任务证据并经核心 Policy 校验。建议不自动执行，不升级根因；
@@ -81,7 +101,7 @@ postman simulation run postman/simulations/agent.sim.yaml --port 18095 --no-hist
 DBIC_LLM_SIMULATION_URL=http://127.0.0.1:18095/llm/v1 uv run pytest -q tests/integration/test_agent_simulation.py
 ```
 
-覆盖成功、401、429、503、超时、伪造 evidence_id；使用假的模型 key，仅 loopback。
+覆盖通用和 DeepSeek 两种请求的成功、401、429、503、超时、伪造 evidence_id；使用假的模型 key，仅 loopback。
 模拟通过证明客户端故障处理和 Engine 回退，不能证明真实模型质量、提供商兼容性或费用。
 仓库夹具由官方函数调用契约及实际请求建立；CLI 未登录，未搜索远端 owner mock。
 

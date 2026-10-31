@@ -291,3 +291,8 @@ MCP 使用官方 Python SDK 2.3.0，以同一应用的 `/mcp/` 提供 Streamable
 Agent HTTP 请求最多 8 秒、32 KiB 响应，无重试/重定向/环境代理；公网模型端点必须 HTTPS，
 loopback/host.docker.internal 允许 HTTP 便于 lab 模型测试。默认不发送任何外部请求。
 保留进程内队列限制，无独立 Worker，不宣称持久调度。M4/M5 未实现。
+
+DBIC_LLM_PROVIDER 可选 openai_compatible（默认）或 deepseek，只影响 HTTP 请求方言。
+DeepSeek 使用 /beta 的严格工具调用与非思考模式；模型侧 schema 移除不支持的数组长度约束，
+但本地模型、证据和预算校验不变。verify_agent.py 要求两个部署诊断报告的 agent_status=ok，
+明确区分真实调用成功与仅规则回退成功。

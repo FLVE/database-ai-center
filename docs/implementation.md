@@ -247,6 +247,8 @@ M1 增加 `0002_m1` request_id 迁移，默认诊断 schema 为 performance_sche
 当前执行 M3（用户在远程 M2 ES 样例验收后授权继续）。实施范围见 [m3-plan.md](m3-plan.md)，
 配置与验证见 [m3-validation.md](m3-validation.md)。沿用 0002_m1，无新表迁移。
 阶段清单优先于第 2 节远期 Compose 规划：本阶段不添加独立 worker 或 Redis。
+用户后续选择 DeepSeek；请求方言由 DBIC_LLM_PROVIDER 显式选择。严格真实模型验收用
+`python3 scripts/verify_agent.py`，不以现有 MCP/规则回退验收替代。
 
 - MCP Server 复用已有工具；实现可配置的 LLM/Agent Adapter（首先简单工具调用，不默认多 Agent）；可选 Elastic Agent Builder。
 - Agent 只提出后续调查建议，PolicyEngine 最终审核；对 prompt injection、过量工具调用、敏感数据泄漏建立负面测试。

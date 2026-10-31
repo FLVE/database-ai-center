@@ -25,10 +25,13 @@ pytestmark = [
         ("injection", "rejected"),
     ],
 )
-def test_real_adapter_against_postman_simulation(scenario, expected):
+@pytest.mark.parametrize("provider", ["openai_compatible", "deepseek"])
+def test_real_adapter_against_postman_simulation(scenario, expected, provider):
     adapter = CompatibleAgentRuntime(
         config(
-            llm_base_url=os.environ["DBIC_LLM_SIMULATION_URL"],
+            llm_base_url=os.environ["DBIC_LLM_SIMULATION_URL"].removesuffix("/v1")
+            + ("/beta" if provider == "deepseek" else "/v1"),
+            llm_provider=provider,
             llm_model=scenario,
             llm_timeout_seconds=0.15 if scenario == "timeout" else 3,
         )
