@@ -273,10 +273,10 @@ memory_growth 需要后续趋势证据，不使用当前快照代替。
 | 批次 | 范围 | 当前状态 |
 |---|---|---|
 | M4.1 Redis | memory_breakdown、slowlog_summary、bigkey_audit_read；实时内存压力诊断 | 已验收；真实大 Key 审计源未提供，明确返回 unavailable |
-| M4.2 MongoDB | current_ops_summary、replica_health；8.0 单成员复制集 lab、最小角色 | 本地实现与双架构套件通过；远程发布待执行，见 [验收记录](m4-mongodb-validation.md) |
+| M4.2 MongoDB | current_ops_summary、replica_health；8.0 单成员复制集 lab、最小角色 | 双架构验证及统一远程发布通过，见 [记录](m4-final-validation.md) |
 | M4.3 PostgreSQL | blocking_sessions、vacuum_health；独立诊断 lab，与 DBIC 元数据 PostgreSQL 分离 | ARM64/AMD64 隔离实库验证通过，见 [记录](m4-final-validation.md) |
 | M4.4 Doris | fe_be_health、query_profile_summary；3.0.8 单 FE/BE、普通账号、固定 v1 Profile 适配 | 原生 ARM64 与原生 AMD64 实库验证通过；AMD64 仿真限制见 [记录](m4-final-validation.md) |
-| M4 整体验收 | 四个批次的证据、报告、权限、REST/MCP 及 MySQL/DeepSeek 回归 | 开发与发布前验证完成，统一发布验收见 [记录](m4-final-validation.md)；后续进入网页界面 |
+| M4 整体验收 | 四个批次的证据、报告、权限、REST/MCP 及 MySQL/DeepSeek 回归 | 已完成并推送 GitHub、升级远程且验收通过，见 [记录](m4-final-validation.md)；下一阶段网页界面 |
 
 每批先形成具体设计，说明实际支持的版本和部署拓扑、固定只读命令、脱敏字段、超时/数量限制、
 失败语义及至少两个可重复 fixture，然后实现、实跑并记录验收结果。架构能力矩阵中的远期工具

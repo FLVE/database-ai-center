@@ -143,4 +143,54 @@ Mongo/PG/Doris，再仅重建 API。不得执行 compose down -v、修改 ES/Kib
 
 服务器独立验证用传输哈希校验的 wheel 包，新增依赖 SHA256 与 uv.lock 相符，已安装依赖
 逐一比对锁文件。最终源码和 0.8.0 元数据的原生 AMD64 再次 29 passed（7.73 秒）。
-正式 GitHub/远程发布结果完成后补记；独立测试不代表现有 API 已升级。
+上述独立验证完成后，已执行以下正式发布。
+
+## 正式发布结果
+
+2026-10-31，代码提交 `2cfeb00819722e0576dfc9f2e470124ea95dac7e` 已推送 GitHub main。
+[GitHub Actions](https://github.com/FLVE/database-ai-center/actions/runs/41193671012) 成功：
+436 passed、34 skipped；Ruff/格式/mypy/compileall 均通过。CI 跳过外部模型和多数实库用例，
+不能替代上面已经执行的本机隔离与原生 AMD64 验证。
+
+远程 `root@106.52.59.184:/root/database-ai-center` 已升级为 0.8.0：
+
+- GitHub 直连拉取超时后，通过经 Git 校验的同一提交 bundle 快进更新；没有重置或覆盖工作区。
+- 使用 `dbic-remote-runtime:2cfeb00-amd64`，源码指纹与提交一致，全部已安装依赖版本与 uv.lock 一致。
+  仅新增的锁定 wheels 和应用 wheel 通过校验传输，复用已验证基线镜像，离线构建。
+- 新 MongoDB、独立 PostgreSQL、Doris FE/BE 均 healthy，API 为 `a5b68f3ba164`，
+  只发布 `127.0.0.1:8086`。healthz/readyz 均 200；受保护 OpenAPI 版本为 0.8.0，五类数据库启用。
+- verify_m4、verify_m42、verify_m4_remaining（PG/Doris）、verify_m3 全部通过。
+- `verify_m2.py --skip-suite --require-search --start 2026-10-31T00:00:00Z --end 2026-10-31T00:30:00Z`
+  通过，保留真实 ES 事件证据；metrics=null 的原有降级保持明确。
+- `verify_agent.py` 通过，lock_wait/slow_query 均 agent_status=ok，各返回 2 条建议，未自动执行。
+- 原 .env、ES/M3 本地 override、Redis 凭据文件的 SHA256 完全未变。
+  ES、Kibana、六个监控容器、原 DBIC PostgreSQL/MySQL 的容器 ID 和启动时间均未变。
+- 独立远程测试容器已停止；运行 lab 验证后主机约 0.9 GiB 可用内存，未做压力/生产容量验证。
+
+远程日常操作必须保留完整参数，不能用仅 base 的重建命令关闭新增能力：
+
+```bash
+cd /root/database-ai-center
+dc_m4() {
+  docker compose --env-file .env \
+    --env-file dist/redis-lab/redis.env --env-file dist/mongodb-lab/mongodb.env \
+    --env-file dist/postgresql-lab/postgresql.env --env-file dist/doris-lab/doris.env \
+    -f deploy/compose.yaml -f deploy/compose.es.local.yaml -f deploy/compose.m3.local.yaml \
+    -f deploy/compose.mongodb.yaml -f deploy/compose.postgresql.yaml -f deploy/compose.doris.yaml \
+    --profile mongodb --profile postgresql --profile doris "$@"
+}
+dc_m4 ps
+python3 scripts/verify_m4_remaining.py --database postgresql --require-mcp
+python3 scripts/verify_m4_remaining.py --database doris --require-mcp
+```
+
+已保留回滚镜像 `dbic-lab-dbic-api:rollback-m41-8ce7178`；未执行回滚。若需恢复原 M4.1：
+
+```bash
+docker tag dbic-lab-dbic-api:rollback-m41-8ce7178 dbic-lab-dbic-api
+docker compose --env-file .env --env-file dist/redis-lab/redis.env \
+  -f deploy/compose.yaml -f deploy/compose.es.local.yaml -f deploy/compose.m3.local.yaml \
+  up -d --no-deps --no-build --pull never --force-recreate --wait dbic-api
+```
+
+无 schema 变更，不回滚或删除数据库内容。下一阶段进入网页界面设计，仍不授权生产接入或自动修复。

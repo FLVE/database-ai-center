@@ -28,3 +28,5 @@
 M4.2 MongoDB、M4.3 PostgreSQL、M4.4 Doris 实现与完整验证入口见 `docs/m4-final-validation.md`；各批设计文件必须与最终适配保持一致。PostgreSQL 必须使用独立诊断目标 lab；Doris 不得为获取 Profile 授予 ADMIN/NODE 权限。发布状态以完整验证记录为准。
 
 用户最新发布授权：先完成剩余所有 M4（PostgreSQL、Doris）并通过整体验证，然后统一 commit/push GitHub，最后升级远程服务器并验收。不要提前单独发布 M4.2/M4.3；若某批真实验证受阻，保留本地改动并说明阻塞，不把未通过的 M4 当作完成发布。此授权不允许改动既有 ES/Kibana、监控或生产数据库。
+
+2026-10-31：M4 已按上述顺序完成，代码提交 2cfeb00，远程 0.8.0 的五类数据库、MCP、ES 和真实 DeepSeek 回归通过。结果与限制见 `docs/m4-final-validation.md`；下一阶段为网页界面，不扩展到生产或自动修复。
