@@ -6,16 +6,11 @@ MySQL 8.4 和 PostgreSQL；已有 ES/Kibana 服务、索引及业务数据库不
 
 ## 当前执行状态
 
-代理环境尝试 SSH 只读检查时，在认证前被网络沙箱阻止：
-
-```text
-ssh: connect to host <target> port 22: Operation not permitted
-```
-
-未实际登录、上传或启动任何远程服务。SSH 地址、别名和私钥路径保留在部署者本机，
-不写入公开仓库。后续可以在服务器直接通过 HTTPS 拉取本仓库，无需传输本机私钥。
-远程 OS、资源余量、Docker 权限、ES 是否已启动、真实端口与认证尚未确认。
-不能把本地打包和测试结果视为部署成功。
+2026-10-31 已在用户指定 Linux x86_64 验证机完成 M2 部署，代码通过 GitHub 拉取，
+API 仅绑定 127.0.0.1:8086，运行库健康、迁移成功，隔离套件 224 passed、1 skipped。
+用户随后完成 ES 合成事件 `--require-search` 验收；Prometheus 保持关闭。
+已有 ES/Kibana 容器保持运行，未重建或修改。SSH 地址、别名和私钥路径不写入公开仓库。
+当前 M3 变更仍是本地开发工作区，不能把它视为远程 M3 已部署。
 
 已准备：
 
@@ -28,7 +23,7 @@ ssh: connect to host <target> port 22: Operation not permitted
 
 本地实测：`pytest -q` 为 204 passed、21 skipped、1 warning；ruff、格式检查、mypy、
 compileall 通过，基础与 Linux override 合并后的 `docker compose config --quiet` 通过。
-远程部署新增用例及 ES 单后端验收回归已执行；Linux 容器启动仍因 SSH 阻断未实测。
+远程部署新增用例及 ES 单后端验收回归已执行；后续远程运行结果见本节顶部。
 
 ## 部署包
 
@@ -91,7 +86,7 @@ HTTP socket 上执行测试，并不以本机单测代替远程验收。
 需要可访问该 SSH 主机的终端。服务器须已有本地 Docker Engine、支持 `up --wait` 的
 Compose v2、Python 3.11+（建议 3.12）；脚本不自动安装系统软件或重启 Docker。
 登录用户须有本地 Docker socket 权限。先检查磁盘和内存余量，足以同时运行现有 ES
-与 DBIC 的运行库、隔离测试库和构建；未取得资源信息前本会话没有启动这些负载。
+与 DBIC 的运行库、隔离测试库和构建。
 
 在服务器终端执行以下命令。公开仓库可通过 HTTPS 克隆，不需要 GitHub 私钥或 Token。
 只在全新目录部署，任一步失败会停止后续步骤：
@@ -102,8 +97,8 @@ cd "$HOME/database-ai-center" &&
 python3 scripts/deploy_linux_lab.py --deploy
 ```
 
-如果目标目录已经存在，先检查其中的代码和 `.env`，不要覆盖。上述命令是待执行入口，
-尚未由代理远程运行。`--deploy` 会依次：
+如果目标目录已经存在，先检查其中的代码和 `.env`，不要覆盖。已有部署不要重复执行
+首次初始化。`--deploy` 会依次：
 
 1. 确认 Linux、宿主 Python 和 Docker/Compose；Docker endpoint 必须是本机 Unix socket。
 2. 若有 `dbic-lab` 容器/卷/网络、已有 `.env` 或 8086 被占用，立即停止，不清理或接管。

@@ -1,5 +1,23 @@
 # M2 历史证据：配置与验收
 
+## 最新验收记录（2026-10-31）
+
+代码已发布到 GitHub，远程 Linux x86_64 lab 部署完成，隔离套件 **224 passed、1 skipped**。
+API/运行数据库健康，迁移成功；没有更改已有 ES/Kibana 容器或生产数据库。
+用户随后配置只读 ES key、将 DBIC API 接入已有 ES 网络，并在专用索引准备合成事件。
+用户执行以下命令成功（第一次因索引不存在失败，补齐后再次通过）：
+
+```bash
+python3 scripts/verify_m2.py --skip-suite --require-search \
+  --start 2026-10-31T00:00:00Z --end 2026-10-31T00:30:00Z
+```
+
+输出：无窗口锁等待 completed/2 份证据；有窗口锁等待 partial/4 份证据；
+有窗口慢查询 partial/4 份证据，明确报告 `no timed application digest samples`。
+最终 `PASS: M2 API verification with Elasticsearch event evidence ...; suite skipped`。
+这是实际 ES 协议、映射、只读认证及证据归档验收；不是实际 MySQL 日志采集验收。
+Prometheus 仍关闭，真实模型尚未接入。以下为此前阶段记录，不能覆盖本节的最新状态。
+
 M0、M1 已由用户在 OrbStack 验收。M2 的部署 API 验收及隔离测试套件也已由用户在
 宿主终端运行通过：**211 passed、1 skipped、1 warning**（17.16 秒）。
 本次未要求历史后端可用；真实 Elasticsearch 9 与 Prometheus 数据接入仍待单独验收。

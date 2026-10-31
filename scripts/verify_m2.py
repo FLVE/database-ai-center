@@ -94,7 +94,9 @@ def main():
     require(request("/api/v1/capabilities")[0] == 401, "anonymous access accepted")
     require(request("/api/v1/capabilities", "invalid")[0] == 401, "wrong token accepted")
     status, capabilities = request("/api/v1/capabilities", token)
-    require(status == 200 and capabilities["milestone"] == "M2", "deploy the M2 image first")
+    require(
+        status == 200 and capabilities["milestone"] in {"M2", "M3"}, "deploy an M2+ image first"
+    )
     backends = capabilities["historical_backends"]
     if args.require_history:
         require(

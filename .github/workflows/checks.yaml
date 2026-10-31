@@ -1,4 +1,4 @@
-name: M2 checks
+name: M3 checks
 on: [push, pull_request]
 jobs:
   check:

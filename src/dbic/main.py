@@ -1,7 +1,7 @@
 import logging
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated, Literal
 from uuid import uuid4
 
@@ -9,13 +9,14 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
-from dbic.adapters.agent.null import NullAgentRuntime
+from dbic.adapters.agent.factory import agent_runtime
 from dbic.adapters.history_factory import historical_adapters
 from dbic.adapters.persistence.postgres import create_database, database_ready
 from dbic.adapters.persistence.tasks import PostgresTaskStore
@@ -23,6 +24,7 @@ from dbic.adapters.registry import YamlRegistry
 from dbic.api.routes.diagnoses import router as diagnoses_router
 from dbic.api.service import DiagnosticService
 from dbic.core.runner import TaskRunner
+from dbic.mcp.server import create_mcp
 from dbic.plugins.mysql.diagnostics import MySQLDiagnostics
 from dbic.settings import Settings
 
@@ -41,8 +43,10 @@ class Capability(BaseModel):
 
 
 class Capabilities(BaseModel):
-    milestone: Literal["M2"] = "M2"
+    milestone: Literal["M3"] = "M3"
     historical_backends: dict[str, str]
+    agent_backend: str
+    mcp_enabled: bool
     databases: list[Capability]
 
 
@@ -80,25 +84,51 @@ def create_app(
                 registry,
                 store,
                 TaskRunner(
-                    registry, tools, store, NullAgentRuntime(), metrics=metrics, search=search
+                    registry, tools, store, agent_runtime(config), metrics=metrics, search=search
                 ),
             )
         else:
             app.state.diagnostics = diagnostics
         try:
-            yield
+            async with AsyncExitStack() as stack:
+                if config.mcp_enabled:
+                    await stack.enter_async_context(mcp.session_manager.run())
+                yield
         finally:
             if engine is not None:
                 engine.dispose()
 
     app = FastAPI(
         title="Database AI Center",
-        version="0.3.0",
+        version="0.4.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
     )
+    mcp = create_mcp(lambda: app.state.diagnostics)
+    if config.mcp_enabled:
+        app.mount(
+            "/mcp",
+            mcp.streamable_http_app(
+                streamable_http_path="/",
+                json_response=True,
+                stateless_http=True,
+                max_request_body_size=16384,
+                transport_security=TransportSecuritySettings(
+                    enable_dns_rebinding_protection=True,
+                    allowed_hosts=[
+                        "localhost",
+                        "localhost:*",
+                        "127.0.0.1",
+                        "127.0.0.1:*",
+                        "[::1]",
+                        "[::1]:*",
+                    ],
+                    allowed_origins=["http://localhost:*", "http://127.0.0.1:*", "http://[::1]:*"],
+                ),
+            ),
+        )
 
     async def authorize(
         credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
@@ -116,6 +146,16 @@ def create_app(
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         request.state.request_id = str(uuid4())
+        if request.url.path == "/mcp" or request.url.path.startswith("/mcp/"):
+            header = request.headers.get("authorization", "")
+            scheme, _, token = header.partition(" ")
+            if scheme.lower() != "bearer" or not secrets.compare_digest(
+                token.encode(), config.api_token.get_secret_value().encode()
+            ):
+                denied = error(request, 401, "http_401", "Unauthorized")
+                denied.headers["WWW-Authenticate"] = "Bearer"
+                denied.headers["X-Request-ID"] = request.state.request_id
+                return denied
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
         return response
@@ -174,6 +214,8 @@ def create_app(
     )
     def capabilities() -> Capabilities:
         return Capabilities(
+            agent_backend=config.agent_backend,
+            mcp_enabled=config.mcp_enabled,
             historical_backends={
                 "metrics": config.metrics_backend,
                 "search": config.search_backend,

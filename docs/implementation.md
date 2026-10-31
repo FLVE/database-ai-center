@@ -237,12 +237,16 @@ M1 增加 `0002_m1` request_id 迁移，默认诊断 schema 为 performance_sche
 - `PrometheusMetricsAdapter`、`ElasticSearchAdapter`、索引映射/样例数据、历史查询窗口和时间对齐。
 - 断连/401/403/超时测试，结果统一到 Evidence 模型。
 - **验收**：开关任一后端不破坏 MySQL 实时诊断；指标/日志证据可追溯。
-- 当前代码、部署 API 验收与隔离套件已通过（用户实测 211 passed、1 skipped）；
-  真实 ES/Prometheus 历史数据接入待单独验收，见 [m2-validation.md](m2-validation.md)。
+- 远程 M2 隔离套件 224 passed、1 skipped；用户后续运行 `--require-search` 验收通过。
+  ES 使用专用 lab 合成事件，真实日志采集/Prometheus 接入仍待验证，见 [m2-validation.md](m2-validation.md)。
 - 用户已授权在指定 Linux 验证主机部署同样的隔离 lab；准备与执行状态见
   [remote-validation.md](remote-validation.md)。此授权不开放生产数据库或公网诊断接口。
 
 ### M3：Agent Runtime 与 MCP
+
+当前执行 M3（用户在远程 M2 ES 样例验收后授权继续）。实施范围见 [m3-plan.md](m3-plan.md)，
+配置与验证见 [m3-validation.md](m3-validation.md)。沿用 0002_m1，无新表迁移。
+阶段清单优先于第 2 节远期 Compose 规划：本阶段不添加独立 worker 或 Redis。
 
 - MCP Server 复用已有工具；实现可配置的 LLM/Agent Adapter（首先简单工具调用，不默认多 Agent）；可选 Elastic Agent Builder。
 - Agent 只提出后续调查建议，PolicyEngine 最终审核；对 prompt injection、过量工具调用、敏感数据泄漏建立负面测试。

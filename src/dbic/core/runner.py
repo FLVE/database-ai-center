@@ -3,6 +3,7 @@ import logging
 import time
 from uuid import UUID
 
+from dbic.core.agent import validate_agent_report
 from dbic.core.engine import transition_task
 from dbic.core.evidence import normalize
 from dbic.core.history import EVENT_SOURCE, METRIC_SOURCES
@@ -18,6 +19,7 @@ from dbic.core.ports import (
     MetricsPort,
     TaskStorePort,
 )
+from dbic.core.report import rule_report
 from dbic.core.rules import evaluate
 
 logger = logging.getLogger("dbic.runner")
@@ -51,6 +53,7 @@ class TaskRunner:
             task = transition_task(detail.task, TaskStatus.RUNNING)
             if not await self.store.update_task(task, TaskStatus.QUEUED):
                 return
+            deadline = time.monotonic() + self.timeout
             async with asyncio.timeout(self.timeout):
                 async with self._gate:
                     instance = await self.registry.get_instance(task.instance_id)
@@ -171,12 +174,41 @@ class TaskRunner:
                             )
                             await self.store.save_step(step, item)
                             evidence.append(item)
-                    realtime_findings = evaluate(task.problem_type, evidence).findings
+                    rule_problem = {
+                        "tool:mysql.lock_chain": "lock_wait",
+                        "tool:mysql.slow_query_summary": "slow_query",
+                    }.get(task.problem_type, task.problem_type)
+                    realtime_findings = evaluate(rule_problem, evidence).findings
                     findings = list(realtime_findings)
                     findings.extend(historical_findings(evidence))
-                    report = await self.agent.explain(
-                        task=task, evidence=evidence, findings=findings
-                    )
+                    report = rule_report(task, evidence, findings)
+                    if not task.problem_type.startswith("tool:"):
+                        try:
+                            remaining = min(10.0, deadline - time.monotonic() - 0.1)
+                            if remaining <= 0:
+                                raise TimeoutError("no agent time budget remaining")
+                            async with asyncio.timeout(remaining):
+                                candidate = await self.agent.explain(
+                                    task=task.model_copy(deep=True),
+                                    evidence=[e.model_copy(deep=True) for e in evidence],
+                                    findings=[f.model_copy(deep=True) for f in findings],
+                                )
+                            report = validate_agent_report(
+                                candidate, report, task, evidence, instance, self.max_calls
+                            )
+                        except Exception as exc:
+                            logger.warning("task=%s agent failure=%s", task_id, type(exc).__name__)
+                            rejected = isinstance(exc, (ValueError, PermissionError, OverflowError))
+                            report = report.model_copy(
+                                update={
+                                    "agent_status": "rejected" if rejected else "unavailable",
+                                    "agent_reason": "budget_exceeded"
+                                    if isinstance(exc, OverflowError)
+                                    else "invalid_advice"
+                                    if rejected
+                                    else "backend_failure",
+                                }
+                            )
                     partial = not realtime_findings or any(
                         e.status not in {"ok", "empty"} or e.limitations for e in evidence
                     )

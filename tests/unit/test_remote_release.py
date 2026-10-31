@@ -58,6 +58,25 @@ def test_generated_remote_credentials_are_new_private_and_never_overwritten(tmp_
     assert path.read_bytes() == original
 
 
+def test_release_includes_local_agent_protocol_fixtures(tmp_path):
+    root = tmp_path / "source"
+    root.mkdir()
+    for name in package_release.ROOT_FILES:
+        (root / name).write_text("example only")
+    mock = root / "postman/mocks/llm"
+    mock.mkdir(parents=True)
+    (mock / "default.js").write_text("// protocol fixture")
+    (mock / "config.yaml").write_text("version: 1")
+    (mock / ".env").write_text("secret-not-for-release")
+    output = tmp_path / "release.tar.gz"
+    package_release.package(root, output)
+    with tarfile.open(output) as archive:
+        names = set(archive.getnames())
+        assert "postman/mocks/llm/default.js" in names
+        assert "postman/mocks/llm/config.yaml" in names
+        assert "postman/mocks/llm/.env" not in names
+
+
 @pytest.mark.parametrize("kind", ["container", "volume", "network"])
 def test_preflight_refuses_existing_project_without_mutating(monkeypatch, tmp_path, kind):
     monkeypatch.setattr(deploy_linux_lab.platform, "system", lambda: "Linux")

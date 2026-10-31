@@ -1,0 +1,6 @@
+simulation: dbic-agent
+routing: path
+mocks:
+  - name: dbic-llm
+    routeKey: llm
+    path: postman/mocks/llm/config.yaml

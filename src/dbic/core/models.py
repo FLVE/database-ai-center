@@ -139,6 +139,17 @@ class Finding(Model):
         return self
 
 
+class AgentSuggestion(Model):
+    tool_id: Literal["mysql.health", "mysql.lock_chain", "mysql.slow_query_summary"]
+    instance_id: Literal["mysql-lab-01"]
+    reason: Literal["refresh_snapshot", "check_missing_evidence", "compare_current_state"]
+    evidence_ids: list[UUID] = Field(min_length=1, max_length=8)
+
+
+class AgentAdvice(Model):
+    suggestions: list[AgentSuggestion] = Field(max_length=3)
+
+
 class Report(Model):
     task_id: UUID
     status: Literal["observed", "inconclusive", "unavailable"]
@@ -152,12 +163,19 @@ class Report(Model):
     tools: list[str] = Field(default_factory=list)
     generated_at: UtcTime = Field(default_factory=utc_now)
     generator_version: str = "0.1.0"
+    agent_status: Literal["disabled", "ok", "unavailable", "rejected"] = "disabled"
+    agent_reason: Literal["backend_failure", "invalid_advice", "budget_exceeded"] | None = None
+    agent_suggestions: list[AgentSuggestion] = Field(default_factory=list, max_length=3)
 
     @model_validator(mode="after")
     def references(self) -> Self:
         known = set(self.evidence_ids)
         if any(not set(f.evidence_ids) <= known for f in self.findings):
             raise ValueError("finding references evidence absent from report")
+        if any(not set(s.evidence_ids) <= known for s in self.agent_suggestions):
+            raise ValueError("agent suggestion references evidence absent from report")
+        if self.agent_suggestions and self.agent_status != "ok":
+            raise ValueError("suggestions require validated agent status")
         if self.status == "observed" and (not known or not self.findings):
             raise ValueError("observed report requires evidence and findings")
         return self

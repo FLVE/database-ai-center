@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,6 +26,12 @@ class Settings(BaseSettings):
     prometheus_instance_label: str = Field(default="instance", pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$")
     prometheus_instance_value: str = Field(default="", max_length=256)
     history_ca_file: str | None = None
+    agent_backend: Literal["null", "openai_compatible"] = "null"
+    llm_base_url: str = Field(default="", repr=False)
+    llm_api_key: SecretStr | None = None
+    llm_model: str = Field(default="", max_length=128)
+    llm_timeout_seconds: float = Field(default=8, gt=0, le=8)
+    mcp_enabled: bool = False
 
     def mysql_dsn(self) -> str | None:
         if not self.mysql_diag_password:
@@ -50,6 +57,27 @@ class Settings(BaseSettings):
             if not self.prometheus_instance_value:
                 raise ValueError(
                     "DBIC_PROMETHEUS_INSTANCE_VALUE is required for the selected lab target"
+                )
+        if self.agent_backend == "openai_compatible":
+            url = urlsplit(self.llm_base_url)
+            if (
+                not url.hostname
+                or url.username
+                or url.password
+                or url.query
+                or url.fragment
+                or url.scheme not in {"http", "https"}
+                or (
+                    url.scheme == "http"
+                    and url.hostname
+                    not in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
+                )
+                or not self.llm_model.strip()
+                or not self.llm_api_key
+                or not self.llm_api_key.get_secret_value().strip()
+            ):
+                raise ValueError(
+                    "agent requires explicit model/key and HTTPS (HTTP only for local lab)"
                 )
         return self
 

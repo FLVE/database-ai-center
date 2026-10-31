@@ -25,7 +25,8 @@ def test_health_readiness_and_auth(available):
             assert client.get("/api/v1/capabilities", headers=headers).status_code == 401
         headers = {"Authorization": f"Bearer {TOKEN}"}
         result = client.get("/api/v1/capabilities", headers=headers).json()
-        assert result["milestone"] == "M2"
+        assert result["milestone"] == "M3"
+        assert result["agent_backend"] == "null" and result["mcp_enabled"] is False
         assert result["historical_backends"] == {"metrics": "null", "search": "null"}
         assert len(result["databases"]) == 5
         assert result["databases"][0]["status"] == "available"

@@ -166,6 +166,85 @@ def test_live_no_lock(lab):
     assert next(e for e in evidence if e["source"] == "mysql.lock_chain")["payload"]["edges"] == []
 
 
+def test_live_mcp_evidence_and_audit(lab):
+    settings, _ = lab
+    headers = {
+        "Authorization": "Bearer " + settings.api_token.get_secret_value(),
+        "Accept": "application/json, text/event-stream",
+    }
+    config = settings.model_copy(update={"mcp_enabled": True})
+    with TestClient(create_app(config), base_url="http://127.0.0.1:8086") as client:
+        result = client.post(
+            "/mcp/",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "mysql_health", "arguments": {"instance_id": "mysql-lab-01"}},
+            },
+        ).json()["result"]
+        assert not result["isError"]
+        item = result["structuredContent"]
+        assert item["status"] == "ok"
+    with TestClient(create_app(settings)) as client:
+        persisted = client.get(
+            f"/api/v1/diagnoses/{item['task_id']}/evidence", headers=headers
+        ).json()
+        assert persisted[0]["evidence_id"] == item["evidence_id"]
+    engine = create_engine(settings.postgres_url())
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text("SELECT actor, action, target FROM audit_events WHERE task_id=:id"),
+                {"id": item["task_id"]},
+            ).all()
+            assert ("mcp-local-user", "tool.executed", "mysql.health") in rows
+            assert len(rows) == 3
+    finally:
+        engine.dispose()
+
+
+def test_live_agent_report_survives_reload(lab, monkeypatch):
+    import json
+
+    import httpx
+
+    from dbic.adapters.agent.compatible import CompatibleAgentRuntime
+    from tests.unit.test_agent import completion, suggestion
+
+    settings, _ = lab
+    config = settings.model_copy(
+        update={
+            "agent_backend": "openai_compatible",
+            "llm_base_url": "http://localhost:12345/v1",
+            "llm_model": "fixture",
+        }
+    )
+    from pydantic import SecretStr
+
+    config = config.model_copy(update={"llm_api_key": SecretStr("fixture-model-key")})
+
+    def respond(request):
+        context = json.loads(json.loads(request.content)["messages"][1]["content"])
+        return httpx.Response(
+            200, json=completion([suggestion(context["evidence"][0]["evidence_id"])])
+        )
+
+    monkeypatch.setattr(
+        "dbic.main.agent_runtime",
+        lambda _: CompatibleAgentRuntime(config, transport=httpx.MockTransport(respond)),
+    )
+    detail, _ = diagnose(config, "lock_wait")
+    headers = {"Authorization": "Bearer " + settings.api_token.get_secret_value()}
+    with TestClient(create_app(settings)) as client:
+        persisted = client.get(
+            f"/api/v1/diagnoses/{detail['task']['task_id']}", headers=headers
+        ).json()
+        assert persisted["report"]["agent_status"] == "ok"
+        assert persisted["report"]["agent_suggestions"] == detail["report"]["agent_suggestions"]
+
+
 def test_live_blocking_lock(lab):
     settings, root_options = lab
     blocker = pymysql.connect(**(root_options | {"autocommit": False}))

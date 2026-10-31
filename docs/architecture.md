@@ -263,4 +263,31 @@ ES 固定检索 db-events-lab，只读、最多 50 条事件，拒绝部分分�
 禁用/断连/权限不足/超时均输出结构化状态及 limitations，任务 partial，保留实时结论。
 请求总超时 5 秒、响应上限 256 KiB，证据持久化上限沿用 64 KiB；不新增重试和采集器。
 
-配置及验收范围见 [m2-validation.md](m2-validation.md)。M3–M5 未实现。
+配置及验收范围见 [m2-validation.md](m2-validation.md)。
+
+## 15. M3 契约落地说明
+
+capabilities.milestone 为 M3，新增 agent_backend（null/openai_compatible）与 mcp_enabled。
+M1/M2 REST 创建请求不变；Report 增加默认值为 disabled 的 agent_status、可选 agent_reason、
+agent_suggestions。旧报告可继续读取，无新数据库迁移。AgentRuntimePort.explain 签名不变。
+
+模型只获得本任务已脱敏证据的 ID、来源、kind/status 与是否有限制；不发送 payload、
+SQL、日志原文、用户反馈、DSN、请求者身份或自由文本。模型通过单次 propose_checks 函数调用
+返回最多三个结构化建议：tool_id、instance_id、reason、evidence_ids。reason 是枚举，
+不直接显示模型自由文本。核心再次验证报告事实未被改写、引用归属和 Policy 白名单，
+已有调用数与建议数合计不得超过八次；重复工具建议也拒绝。不执行这些建议，人工可另行发起检查。
+模型超时/不可用/无效输出时保留规则报告；agent_status 记录 unavailable/rejected，
+不因可选 Agent 故障将已有有效数据库调查改为 failed。禁止 Agent 升级 confirmed_root_cause。
+
+MCP 使用官方 Python SDK 2.3.0，以同一应用的 `/mcp/` 提供 Streamable HTTP。
+默认关闭，开启后所有方法均使用已有单用户 Bearer Token，限制 loopback Host/Origin、
+16 KiB 请求体，复用 16 个待执行任务容量、单实例并发 1、任务预算 8 次/90 秒。
+仅暴露 mysql_health/mysql_lock_chain/mysql_slow_query_summary，参数只有 mysql-lab-01。
+额外 SQL/DSN 参数被拒绝。每次合法调用创建 `tool:<tool_id>` 内部任务，通过同一 TaskRunner
+执行一个固定工具并归档 evidence/step/report/audit；调用者记录为 mcp-local-user。
+返回单份脱敏 Evidence，可通过 REST 按 task_id 回读；MCP 工具不会再调用 LLM。
+此单用户 Token 边界不等同于公网 OAuth 服务，不支持远程无鉴权访问。
+
+Agent HTTP 请求最多 8 秒、32 KiB 响应，无重试/重定向/环境代理；公网模型端点必须 HTTPS，
+loopback/host.docker.internal 允许 HTTP 便于 lab 模型测试。默认不发送任何外部请求。
+保留进程内队列限制，无独立 Worker，不宣称持久调度。M4/M5 未实现。

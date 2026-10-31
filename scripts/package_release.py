@@ -16,7 +16,7 @@ ROOT_FILES = {
     ".gitignore",
     ".env.example",
 }
-TREES = {"src", "scripts", "tests", "migrations", "configs", "deploy", "docs"}
+TREES = {"src", "scripts", "tests", "migrations", "configs", "deploy", "docs", "postman"}
 SUFFIXES = {".py", ".yaml", ".yml", ".json", ".md", ".mako", ".ini"}
 
 
@@ -34,7 +34,9 @@ def release_files(root):
             if any(part.startswith(".") or part == "__pycache__" for part in relative.parts):
                 continue
             if path.is_file() and (
-                path.suffix in SUFFIXES or relative == Path("deploy/Dockerfile")
+                path.suffix in SUFFIXES
+                or relative == Path("deploy/Dockerfile")
+                or (relative.parts[0] == "postman" and path.suffix == ".js")
             ):
                 yield path
 

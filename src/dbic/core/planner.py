@@ -1,4 +1,5 @@
 from dbic.core.models import Model
+from dbic.core.policy import TOOLS
 
 
 class Playbook(Model):
@@ -22,6 +23,8 @@ PLAYBOOKS = {
 
 
 def plan(problem_type: str) -> Playbook:
+    if problem_type.startswith("tool:") and problem_type[5:] in TOOLS:
+        return Playbook(id=problem_type, required_tools=[problem_type[5:]])
     if problem_type not in PLAYBOOKS:
         raise ValueError("unsupported problem_type")
     return PLAYBOOKS[problem_type].model_copy(deep=True)

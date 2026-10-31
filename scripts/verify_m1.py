@@ -58,7 +58,8 @@ def main():
     require(request("/api/v1/capabilities", "invalid")[0] == 401, "wrong token was accepted")
     status, capabilities = request("/api/v1/capabilities", token)
     require(
-        status == 200 and capabilities["milestone"] in {"M1", "M2"}, "M1+ image is not deployed"
+        status == 200 and capabilities["milestone"] in {"M1", "M2", "M3"},
+        "M1+ image is not deployed",
     )
     for problem in ("lock_wait", "slow_query"):
         status, created = request(

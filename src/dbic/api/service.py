@@ -1,6 +1,6 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from dbic.core.models import DiagnosticTask, Feedback, TaskStatus, TimeWindow
+from dbic.core.models import DiagnosticTask, Evidence, Feedback, TaskStatus, TimeWindow
 from dbic.core.planner import plan
 from dbic.core.policy import authorize
 from dbic.core.ports import AssetRegistryPort, TaskStorePort
@@ -22,6 +22,7 @@ class DiagnosticService:
         window: TimeWindow | None,
         parent_task_id: UUID | None,
         request_id: UUID,
+        requested_by: str = "local-user",
     ) -> DiagnosticTask:
         instance = await self.registry.get_instance(instance_id)
         if instance is None:
@@ -43,7 +44,7 @@ class DiagnosticService:
             instance_id=instance_id,
             database_type="mysql",
             problem_type=problem_type,
-            requested_by="local-user",
+            requested_by=requested_by,
             window=window,
             parent_task_id=parent_task_id,
             playbook_id=playbook.id,
@@ -57,6 +58,28 @@ class DiagnosticService:
             self.pending.discard(task.task_id)
             raise
         return task
+
+    async def inspect_tool(self, tool_id: str, instance_id: str) -> Evidence:
+        instance = await self.registry.get_instance(instance_id)
+        if instance is None:
+            raise PermissionError("instance is not allowed")
+        authorize(instance, tool_id)
+        task = await self.create(
+            instance_id=instance_id,
+            problem_type="tool:" + tool_id,
+            window=None,
+            parent_task_id=None,
+            request_id=uuid4(),
+            requested_by="mcp-local-user",
+        )
+        await self.execute(task.task_id)
+        detail = await self.store.get_task(task.task_id)
+        if detail is None or detail.task.status not in {TaskStatus.COMPLETED, TaskStatus.PARTIAL}:
+            raise RuntimeError("MCP task did not finish successfully")
+        items = await self.store.get_evidence(task.task_id)
+        if len(items) != 1 or items[0].source != tool_id or not items[0].redacted:
+            raise RuntimeError("MCP task did not produce a single redacted evidence item")
+        return items[0]
 
     async def execute(self, task_id: UUID) -> None:
         try:

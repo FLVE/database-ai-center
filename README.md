@@ -1,8 +1,8 @@
-# Database AI Center — M2
+# Database AI Center — M3
 
 基线为 [architecture.md](docs/architecture.md) V2.1 与
 [implementation.md](docs/implementation.md)。M0、M1 本地验收已通过；M2 新增可选历史指标与事件证据。
-M2 配置、升级及尚待实测项目见 [docs/m2-validation.md](docs/m2-validation.md)。
+M2 已通过远程 ES 合成事件验收；M3 新增可选 Agent 与 MCP，见 [docs/m3-validation.md](docs/m3-validation.md)。
 Linux 服务器从 GitHub 拉取并部署的步骤见 [docs/remote-validation.md](docs/remote-validation.md)。
 
 ## 本阶段范围
@@ -18,9 +18,12 @@ Linux 服务器从 GitHub 拉取并部署的步骤见 [docs/remote-validation.md
 - 健康检查、迁移就绪检查、能力列表、统一错误与服务端生成的 request_id。
 - Prometheus 固定指标、Elasticsearch `db-events-lab` 结构化事件，只读且默认关闭。
 - 带时间窗的任务追加两份历史证据；历史源失败仍保留实时诊断结果并标为 partial。
+- 可选 OpenAI 兼容函数调用适配器，仅提出有证据引用的预定义只读调查建议；失败回退规则报告。
+- 可选 `/mcp/` Streamable HTTP 入口，三个具名工具复用现有任务、权限、预算及审计。
 
 运行库还包括 uvicorn、pydantic-settings、PyMySQL[rsa]、PyYAML 和 HTTPX；
-M2 将 HTTPX 从开发依赖提升为运行依赖，没有新增 ES/LLM SDK。开发依赖为 pytest、ruff、mypy。
+M3 新增官方 MCP SDK（锁定 2.3.0），HTTPX 仍用于历史后端和模型协议；未引入 Agent 框架。
+MCP SDK 的依赖包含 HTTPX2，开发依赖为 pytest、ruff、mypy。
 本地安装使用 `uv sync --locked`；Docker 使用 uv 0.11.7 与 `uv sync --frozen` 安装锁定依赖。
 Dockerfile 从官方 `ghcr.io/astral-sh/uv:0.11.7` 镜像复制 uv，避免另行通过 pip 下载 uv 安装包。
 
@@ -58,21 +61,22 @@ curl --noproxy '*' --fail -H "Authorization: Bearer ${DBIC_API_TOKEN}" http://12
 ```
 
 MySQL 返回三个已实现工具，其余数据库返回 `not_implemented` 和空工具清单。
-实现状态不代表目标实例连通性。诊断、证据、反馈 API 均需 Token；M1 不开放 MCP。
+实现状态不代表目标实例连通性。诊断、证据、反馈 API 均需 Token；MCP 默认关闭，启用后同样鉴权。
 `/healthz` 无鉴权且只报告进程存活；`/readyz` 无鉴权，仅返回是否连接到期望迁移版本，
 失败返回脱敏的 503；OpenAPI 同样受 token 保护。所有响应带 `X-Request-ID`。
 
 ## 本地开发与验证
 
-已完成 M1 的 diag 账号设置后，重建 M2 镜像，在宿主终端运行：
+已完成 M1 的 diag 账号设置后，重建当前镜像，在宿主终端运行：
 
 ```bash
 python3 scripts/verify_m2.py
+python3 scripts/verify_m3.py
 ```
 
 脚本绕过代理检查真实 API、历史窗口、降级和报告引用，再构建 verify profile 运行独立测试库及 HTTP 故障夹具。
 默认 Null 配置也能验收；真实历史数据验收使用文档中的 `--require-history`。
-`verify_m1.py` 仍可运行 M1 回归（包括反馈），兼容 M2 能力版本。
+`verify_m1.py` 仍可运行 M1 回归（包括反馈），M1/M2 验收脚本均兼容 M3 能力版本。
 测试会临时构造行锁、撤销测试账号权限、关闭测试实例 digest consumer，并在 finally
 恢复；测试服务与运行中 lab 网络隔离，不修改运行中 diag 权限或采集开关。
 原 `scripts/verify_m0.py` 保留为 M0 历史入口，不适用于 M1 的能力契约。
@@ -119,7 +123,8 @@ CI 提供隔离 PostgreSQL 17 服务并执行此测试；trust 认证仅用于�
 慢查询摘要是累计计数；历史查询另外读取连接数、慢查询计数器速率和结构化事件。
 历史源不可用、采样缺口、截断均显式标注；不能据此确认精确慢日志增长或根因。
 
-完成 M2 真实环境验收后再进入 M3（Agent Runtime 与 MCP）；当前不实现 LLM/MCP。
+M3 的 Agent 与 MCP 默认关闭；真实模型接入、模型质量和生产可靠性未由模拟测试证明。
+下一阶段是 M4 数据库能力扩展，须单独授权，不自动开始。
 
 停止服务用 `docker compose --env-file .env -f deploy/compose.yaml stop`，保留卷。
 M0 新文件可整体移除回退；不要用 `down -v` 清除已有实验数据。迁移 downgrade 会删除

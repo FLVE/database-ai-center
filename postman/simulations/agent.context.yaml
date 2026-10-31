@@ -1,0 +1,18 @@
+claims:
+  - claim: The real HTTP adapter and Engine retain rule findings on model failure.
+    status: verified_locally
+    verification: 2026-10-31, 6 passed; Postman log showed six POST requests, statuses 200/401/429/503/200/200.
+    reason: Success, auth failure, throttling, service failure, delayed response and forged reference were exercised. No real provider was contacted.
+  - claim: The adapter uses one Chat Completions function call named propose_checks.
+    status: contract
+    source: https://developers.openai.com/api/docs/guides/function-calling
+    verification: tests/unit/test_agent.py and tests/integration/test_agent_simulation.py
+    reason: Only the consumed protocol subset is modeled; unknown routes return 501.
+  - claim: No real model service or external credentials are used by this simulation.
+    status: design
+    verification: The model field selects a local success, error, timeout or injection fixture.
+    reason: Provider compatibility, actual inference quality and billing remain unverified.
+  - claim: Owner workspace mock discovery was skipped.
+    status: observed
+    verification: postman whoami returned no account details.
+    reason: This local repository fixture has no cloud workspace or publishing dependency.
