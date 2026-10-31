@@ -177,3 +177,32 @@ docker compose --env-file .env \
 
 协议依据：[MCP ASGI 集成](https://py.sdk.modelcontextprotocol.io/run/asgi/)、
 [OpenAI 函数调用](https://developers.openai.com/api/docs/guides/function-calling)。
+
+## DeepSeek 真实模型验收（2026-10-31）
+
+用户在服务器配置 Key 后，应用提交 `447a9b8` 增加 DeepSeek 参数适配与独立真实模型验收。
+已推送 GitHub；服务器直连 GitHub 超时，使用 SHA256 校验一致的 Git bundle 快进至同一提交。
+依赖锁和项目依赖文件未改变，在服务器已有 M3 amd64 镜像上替换应用源码构建新镜像。
+未修改数据库迁移、ES/Kibana 或任何生产数据库。
+
+| 检查 | 实际结果 |
+|---|---|
+| 本机全量，启用 HTTP 和 Postman 模拟 | 286 passed、11 skipped，15.75 秒；跳过未启用的本机数据库测试 |
+| 服务器隔离 MySQL/PostgreSQL 全量 | 284 passed、13 skipped，27.74 秒；跳过 12 项独立 Postman 模拟及 1 项独立 DSN 迁移测试 |
+| [应用提交 CI](https://github.com/FLVE/database-ai-center/actions/runs/41169243451) | 275 passed、22 skipped，20.28 秒；静态检查通过 |
+| ruff / format / mypy / compileall / uv lock --check | 全部通过；mypy 44 个源文件 |
+| `python3 scripts/verify_agent.py` | lock_wait、slow_query 均 agent_status=ok，各 2 条建议、2 条归档证据，无额外工具执行 |
+| `python3 scripts/verify_m3.py --require-mcp` | 三个 MCP 工具与 REST 归档证据一致 |
+| M2 `--skip-suite --require-search`，同上历史窗口 | PASS；ES 历史事件可用，指标关闭仍为 partial，慢查询摘要缺少计时样本仍明确 unavailable |
+
+服务器 `deploy/compose.m3.local.yaml` 现在设置 MCP=true、Agent=openai_compatible、
+provider=deepseek、base URL=https://api.deepseek.com/beta。
+模型 `deepseek-flash` 和 Key 来自服务器私有 `.env`；该文件及 ES 网络 override 的 SHA256
+在操作前后一致。API 仍只绑定 `127.0.0.1:8086`。隔离测试数据库已停止。
+此前“真实模型关闭”的记录描述当时状态；此次部署后模型已启用。
+
+以后重建须继续使用上节的三个 Compose 文件。关闭模型时，修改服务器 M3 override 中的
+`DBIC_AGENT_BACKEND: "null"` 并加 `--force-recreate` 重建 API；仅修改 `.env` 不会覆盖该值。
+回退整个此次应用改动可恢复 `dist/compose.m3.pre-deepseek.yaml` 到 M3 override，
+将 `dbic-lab-dbic-api:rollback-m3-b8137f2` 标记回 `dbic-lab-dbic-api:latest`，再用三个配置
+重建 API。无需回退数据库。模型仅提出受校验的调查建议，未实现自动调用建议工具或 M4/M5。
