@@ -256,6 +256,13 @@ M1 增加 `0002_m1` request_id 迁移，默认诊断 schema 为 performance_sche
 
 ### M4：Redis，再扩展 MongoDB/PostgreSQL/Doris
 
+M3 MCP 与 DeepSeek 真实调用已经验收，用户在设计完成后授权 M4.1 实现。
+范围见 [M4.1 设计](m4-plan.md)，配置和实际结果见 [M4.1 验收](m4-validation.md)。
+先按 Redis 单节点 lab 交付三个工具和 memory_pressure 闭环，再分批推进其余数据库；
+memory_growth 需要后续趋势证据，不使用当前快照代替。
+本批次的可选 Redis profile、禁用默认值、依赖、兼容变更及测试矩阵见上述文档。
+第 2 节中 Redis=M2、worker=M3 是早期规划，执行时以阶段清单为准，不能据此补建 Worker。
+
 - Redis 首批：memory_breakdown、slowlog_summary、bigkey_audit_read；测试内存异常证据分离。
 - MongoDB：current_ops/replica_health；PG：blocking_sessions/vacuum_health；Doris：fe_be_health/query_profile_summary。按接口能力渐进交付。
 - **验收**：每种数据库至少 2 个可重复的诊断 fixture；不支持的能力显式返回 unavailable/not_implemented。

@@ -54,7 +54,7 @@ def main():
     token = result.stdout.strip()
     require(request("/readyz") == (200, {"status": "ready"}), "database schema not ready")
     status, capabilities = request("/api/v1/capabilities", token)
-    require(status == 200 and capabilities["milestone"] == "M3", "deploy M3 first")
+    require(status == 200 and capabilities["milestone"] in {"M3", "M4"}, "deploy M3+ first")
     print("PASS: M3 capabilities and readiness", flush=True)
     if not capabilities["mcp_enabled"]:
         require(not args.require_mcp, "enable DBIC_MCP_ENABLED and recreate API")
@@ -75,8 +75,14 @@ def main():
     require(status == 200 and "result" in initialized, "MCP initialization failed")
     status, listed = rpc("tools/list", token)
     names = {"mysql_health", "mysql_lock_chain", "mysql_slow_query_summary"}
+    expected = names | {
+        tool.replace(".", "_")
+        for db in capabilities["databases"]
+        if db["database_type"] == "redis"
+        for tool in db["tools"]
+    }
     require(
-        status == 200 and {t["name"] for t in listed["result"]["tools"]} == names,
+        status == 200 and {t["name"] for t in listed["result"]["tools"]} == expected,
         "MCP tool allowlist mismatch",
     )
     for name in sorted(names):

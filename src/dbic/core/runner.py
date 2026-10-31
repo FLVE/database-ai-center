@@ -19,6 +19,7 @@ from dbic.core.ports import (
     MetricsPort,
     TaskStorePort,
 )
+from dbic.core.redis_rules import redis_findings
 from dbic.core.report import rule_report
 from dbic.core.rules import evaluate
 
@@ -59,7 +60,11 @@ class TaskRunner:
                     instance = await self.registry.get_instance(task.instance_id)
                     if instance is None:
                         raise PermissionError("instance unavailable")
-                    playbook = plan(task.problem_type)
+                    if task.database_type != instance.type:
+                        raise PermissionError("task database type does not match registry")
+                    if task.database_type != "mysql" and task.window:
+                        raise PermissionError("historical window unsupported for database")
+                    playbook = plan(task.problem_type, database_type=task.database_type)
                     if len(playbook.required_tools) + (2 if task.window else 0) > self.max_calls:
                         raise PermissionError("tool budget exceeded")
                     for index, tool_id in enumerate(playbook.required_tools):
@@ -178,9 +183,14 @@ class TaskRunner:
                         "tool:mysql.lock_chain": "lock_wait",
                         "tool:mysql.slow_query_summary": "slow_query",
                     }.get(task.problem_type, task.problem_type)
-                    realtime_findings = evaluate(rule_problem, evidence).findings
+                    realtime_findings = (
+                        redis_findings(task, evidence)
+                        if task.database_type == "redis"
+                        else evaluate(rule_problem, evidence).findings
+                    )
                     findings = list(realtime_findings)
-                    findings.extend(historical_findings(evidence))
+                    if task.database_type == "mysql":
+                        findings.extend(historical_findings(evidence))
                     report = rule_report(task, evidence, findings)
                     if not task.problem_type.startswith("tool:"):
                         try:

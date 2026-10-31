@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL, make_url
 
@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     pg_password: SecretStr | None = None
     configs_dir: Path = Path("configs")
     mysql_diag_password: SecretStr | None = None
+    redis_enabled: bool = False
+    redis_diag_password: SecretStr | None = None
+    redis_audit_dir: Path | None = None
     search_backend: Literal["null", "elastic"] = "null"
     metrics_backend: Literal["null", "prometheus"] = "null"
     elastic_url: str = Field(default="", repr=False)
@@ -33,6 +36,11 @@ class Settings(BaseSettings):
     llm_model: str = Field(default="", max_length=128)
     llm_timeout_seconds: float = Field(default=8, gt=0, le=8)
     mcp_enabled: bool = False
+
+    @field_validator("redis_audit_dir", mode="before")
+    @classmethod
+    def empty_audit_directory(cls, value: object) -> object:
+        return None if value == "" else value
 
     def mysql_dsn(self) -> str | None:
         if not self.mysql_diag_password:

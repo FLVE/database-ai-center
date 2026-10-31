@@ -15,25 +15,30 @@ MCP_TOOLS = {
     "mysql_health": "mysql.health",
     "mysql_lock_chain": "mysql.lock_chain",
     "mysql_slow_query_summary": "mysql.slow_query_summary",
+    "redis_memory_breakdown": "redis.memory_breakdown",
+    "redis_slowlog_summary": "redis.slowlog_summary",
+    "redis_bigkey_audit_read": "redis.bigkey_audit_read",
 }
 
 
 class DiagnosticMCP(MCPServer[None]):
     def __init__(self, service: Callable[[], DiagnosticService]) -> None:
-        super().__init__("Database AI Center", version="0.4.0")
+        super().__init__("Database AI Center", version="0.5.0")
         self.service = service
 
     async def list_tools(self) -> list[Tool]:
-        instance = await self.service().registry.get_instance("mysql-lab-01")
-        if instance is None:
-            return []
-        try:
-            authorize(instance, "mysql.health")
-        except PermissionError:
-            return []
-        result = await super().list_tools()
-        for tool in result:
+        result = []
+        for tool in await super().list_tools():
+            tool_id = MCP_TOOLS[tool.name]
+            instance = await self.service().registry.get_instance(tool_id.split(".")[0] + "-lab-01")
+            if instance is None:
+                continue
+            try:
+                authorize(instance, tool_id)
+            except PermissionError:
+                continue
             tool.input_schema["additionalProperties"] = False
+            result.append(tool)
         return result
 
     async def call_tool(
@@ -42,7 +47,7 @@ class DiagnosticMCP(MCPServer[None]):
         if (
             name not in MCP_TOOLS
             or set(arguments) != {"instance_id"}
-            or arguments["instance_id"] != "mysql-lab-01"
+            or arguments["instance_id"] != MCP_TOOLS[name].split(".")[0] + "-lab-01"
         ):
             return CallToolResult(
                 isError=True, content=[TextContent(type="text", text="invalid_tool_or_arguments")]
@@ -76,5 +81,20 @@ def create_mcp(service: Callable[[], DiagnosticService]) -> DiagnosticMCP:
     async def mysql_slow_query_summary(instance_id: Literal["mysql-lab-01"]) -> Evidence:
         """Read cumulative statement digests; these are not time-window slow query logs."""
         return await service().inspect_tool("mysql.slow_query_summary", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def redis_memory_breakdown(instance_id: Literal["redis-lab-01"]) -> Evidence:
+        """Read a current Redis memory snapshot; one snapshot does not establish growth."""
+        return await service().inspect_tool("redis.memory_breakdown", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def redis_slowlog_summary(instance_id: Literal["redis-lab-01"]) -> Evidence:
+        """Summarize retained slowlog samples without keys, arguments or client metadata."""
+        return await service().inspect_tool("redis.slowlog_summary", instance_id)
+
+    @server.tool(annotations=annotations)
+    async def redis_bigkey_audit_read(instance_id: Literal["redis-lab-01"]) -> Evidence:
+        """Read an existing sanitized audit; never scan Redis keys."""
+        return await service().inspect_tool("redis.bigkey_audit_read", instance_id)
 
     return server

@@ -1,8 +1,10 @@
-# Database AI Center — M3
+# Database AI Center — M4.1
 
 基线为 [architecture.md](docs/architecture.md) V2.1 与
 [implementation.md](docs/implementation.md)。M0、M1 本地验收已通过；M2 新增可选历史指标与事件证据。
 M2 已通过远程 ES 合成事件验收；M3 新增可选 Agent 与 MCP，见 [docs/m3-validation.md](docs/m3-validation.md)。
+M4.1 增加 Redis 8.4 lab 的内存压力、慢日志摘要和已有大 Key 审计读取；
+启用与验收见 [docs/m4-validation.md](docs/m4-validation.md)，其余数据库仍未实现。
 Linux 服务器从 GitHub 拉取并部署的步骤见 [docs/remote-validation.md](docs/remote-validation.md)。
 
 ## 本阶段范围
@@ -19,10 +21,12 @@ Linux 服务器从 GitHub 拉取并部署的步骤见 [docs/remote-validation.md
 - Prometheus 固定指标、Elasticsearch `db-events-lab` 结构化事件，只读且默认关闭。
 - 带时间窗的任务追加两份历史证据；历史源失败仍保留实时诊断结果并标为 partial。
 - 可选 OpenAI 兼容函数调用适配器，仅提出有证据引用的预定义只读调查建议；失败回退规则报告。
-- 可选 `/mcp/` Streamable HTTP 入口，三个具名工具复用现有任务、权限、预算及审计。
+- 可选 `/mcp/` Streamable HTTP 入口，三个 MySQL 工具与三个按部署授权启用的 Redis 工具。
+- Redis 默认关闭，问题类型 memory_pressure；不扫描 Key、不运行任意命令、不调用模型。
 
 运行库还包括 uvicorn、pydantic-settings、PyMySQL[rsa]、PyYAML 和 HTTPX；
-M3 新增官方 MCP SDK（锁定 2.3.0），HTTPX 仍用于历史后端和模型协议；未引入 Agent 框架。
+M3 新增官方 MCP SDK（锁定 2.3.0）；M4.1 新增 redis-py（锁定 8.1.0）。
+HTTPX 仍用于历史后端和模型协议；未引入 Agent 框架。
 MCP SDK 的依赖包含 HTTPX2，开发依赖为 pytest、ruff、mypy。
 本地安装使用 `uv sync --locked`；Docker 使用 uv 0.11.7 与 `uv sync --frozen` 安装锁定依赖。
 Dockerfile 从官方 `ghcr.io/astral-sh/uv:0.11.7` 镜像复制 uv，避免另行通过 pip 下载 uv 安装包。
@@ -76,7 +80,9 @@ python3 scripts/verify_m3.py
 
 脚本绕过代理检查真实 API、历史窗口、降级和报告引用，再构建 verify profile 运行独立测试库及 HTTP 故障夹具。
 默认 Null 配置也能验收；真实历史数据验收使用文档中的 `--require-history`。
-`verify_m1.py` 仍可运行 M1 回归（包括反馈），M1/M2 验收脚本均兼容 M3 能力版本。
+`verify_m1.py` 仍可运行 M1 回归（包括反馈），M1–M3 验收脚本均兼容 M4 能力版本。
+直接运行 Compose 隔离套件前，先执行 `python3 scripts/init_redis_lab.py --test`；
+M1/M2 验证脚本会自动生成缺失的测试 Redis 私有配置，已有文件保持不变。
 测试会临时构造行锁、撤销测试账号权限、关闭测试实例 digest consumer，并在 finally
 恢复；测试服务与运行中 lab 网络隔离，不修改运行中 diag 权限或采集开关。
 原 `scripts/verify_m0.py` 保留为 M0 历史入口，不适用于 M1 的能力契约。

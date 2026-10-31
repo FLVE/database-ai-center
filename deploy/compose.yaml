@@ -53,7 +53,11 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       target: runtime
-    environment: *dbic-env
+    environment:
+      <<: *dbic-env
+      DBIC_REDIS_ENABLED: ${DBIC_REDIS_ENABLED:-false}
+      DBIC_REDIS_DIAG_PASSWORD: ${DBIC_REDIS_DIAG_PASSWORD:-}
+      DBIC_REDIS_AUDIT_DIR: ${DBIC_REDIS_AUDIT_DIR:-}
     ports:
       - "127.0.0.1:8086:8086"
     networks:
@@ -82,6 +86,39 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+
+  redis-lab:
+    profiles: [redis]
+    image: &redis-image redis:8.4.8@sha256:8966e8ff525ef9e3f3ea476cb15db868a41a701f5188c77c138e3ce613c2d81a
+    command: [redis-server, --aclfile, /run/dbic/users.acl, --save, "", --appendonly, "no", --maxmemory, 64mb, --maxmemory-policy, noeviction]
+    volumes:
+      - type: bind
+        source: ../dist/redis-lab/users.acl
+        target: /run/dbic/users.acl
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck: &redis-health
+      test: [CMD-SHELL, "redis-cli ping 2>&1 | grep -q NOAUTH"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  test-redis:
+    profiles: [verify]
+    image: *redis-image
+    command: [redis-server, --aclfile, /run/dbic/users.acl, --save, "", --appendonly, "no", --maxmemory, 16mb, --maxmemory-policy, noeviction, --slowlog-log-slower-than, "0", --slowlog-max-len, "128"]
+    volumes:
+      - type: bind
+        source: ../dist/redis-test/users.acl
+        target: /run/dbic/users.acl
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      verification:
+        aliases: [redis-lab]
+    healthcheck: *redis-health
 
   test-postgres:
     profiles: [verify]
@@ -120,10 +157,14 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       target: verification
+    env_file:
+      - path: ../dist/redis-test/redis.env
+        required: false
     environment:
       <<: *dbic-env
       DBIC_LIVE_TESTS: "1"
       DBIC_HTTP_TESTS: "1"
+      DBIC_REDIS_TESTS: "1"
       DBIC_SEARCH_BACKEND: "null"
       DBIC_METRICS_BACKEND: "null"
       DBIC_ELASTIC_API_KEY: ""
@@ -138,6 +179,8 @@ services:
       test-postgres:
         condition: service_healthy
       test-mysql:
+        condition: service_healthy
+      test-redis:
         condition: service_healthy
 
 volumes:

@@ -296,3 +296,24 @@ DBIC_LLM_PROVIDER 可选 openai_compatible（默认）或 deepseek，只影响 H
 DeepSeek 使用 /beta 的严格工具调用与非思考模式；模型侧 schema 移除不支持的数组长度约束，
 但本地模型、证据和预算校验不变。verify_agent.py 要求两个部署诊断报告的 agent_status=ok，
 明确区分真实调用成功与仅规则回退成功。
+
+## 16. M4.1 Redis 契约落地说明
+
+M3 的 MCP 与 DeepSeek 真实调用已验收。M4.1 设计见 [m4-plan.md](m4-plan.md)，
+本次实现 Redis 单节点 lab 的 memory_breakdown、slowlog_summary、bigkey_audit_read，
+其他数据库分批设计和验收。仅 M4.1 通过不能宣称整个 M4 完成。
+
+Redis 首个问题为 memory_pressure / redis.memory_pressure，针对当前内存压力；
+第 6 节的 redis.memory_growth 保留到具有历史趋势证据时实现。大 Key 工具只读既有脱敏
+审计文件，不扫描 Key；Redis 首版 NullAgent，已有 MySQL 模型能力保留。
+已扩展按数据库类型的 Planner/Policy/工具路由、REST 问题枚举和三个具名 Redis MCP 工具，
+Port 与持久化契约保持兼容，沿用 0002_m1；capabilities.milestone=M4，应用版本 0.5.0。
+capabilities 新增各数据库 enabled（默认 false）与 agent_database_types=[mysql]，
+实现状态与部署启用/连通性分开。Redis 非空 window 或跨类型问题返回 422，禁用实例返回 403。
+Redis 证据数据模型位于 core/redis_models.py，插件和纯规则共享；core 不依赖 Redis 客户端。
+
+Redis 8.4.8、redis-py 8.1.0 实测使用 RESP2、禁用客户端元数据上报及重试，
+账号仅允许 PING、INFO、SLOWLOG GET，默认用户关闭，不授予任意 Key 权限。
+启动初期发现 dataset 统计下溢时将不一致组成项标为缺失并记录 limitation，
+保留有效总内存/限额，不将异常值改成零或用于结论。当前快照、保留慢日志与导入审计分开表述。
+本机配置和实际验收范围见 [m4-validation.md](m4-validation.md)，不代表远程已部署 M4。

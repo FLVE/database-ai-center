@@ -8,19 +8,22 @@ from pydantic import Field, field_validator, model_validator
 from dbic.api.service import DiagnosticService
 from dbic.core.history import validate_window
 from dbic.core.models import Evidence, Feedback, Model, TaskDetail, TaskStatus, TimeWindow
+from dbic.core.planner import UnsupportedDiagnosis
 
 router = APIRouter(prefix="/api/v1/diagnoses")
 
 
 class CreateDiagnosis(Model):
     instance_id: str = Field(min_length=1, max_length=100)
-    problem_type: Literal["lock_wait", "slow_query"]
+    problem_type: Literal["lock_wait", "slow_query", "memory_pressure"]
     window: TimeWindow | None = None
     parent_task_id: UUID | None = None
 
     @model_validator(mode="after")
     def historical_window(self) -> Self:
         if self.window:
+            if self.problem_type == "memory_pressure":
+                raise ValueError("Redis historical windows are not supported")
             validate_window(self.window)
         return self
 
@@ -63,6 +66,8 @@ async def create(body: CreateDiagnosis, request: Request, background: Background
         )
     except PermissionError as exc:
         raise HTTPException(403, "Instance is not allowed") from exc
+    except UnsupportedDiagnosis as exc:
+        raise HTTPException(422, "Unsupported database, problem or window") from exc
     except ValueError as exc:
         raise HTTPException(409, "Invalid retry parent") from exc
     except OverflowError as exc:

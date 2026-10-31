@@ -1,8 +1,8 @@
 from uuid import UUID, uuid4
 
 from dbic.core.models import DiagnosticTask, Evidence, Feedback, TaskStatus, TimeWindow
-from dbic.core.planner import plan
-from dbic.core.policy import authorize
+from dbic.core.planner import UnsupportedDiagnosis, plan
+from dbic.core.policy import authorize, authorize_instance
 from dbic.core.ports import AssetRegistryPort, TaskStorePort
 from dbic.core.runner import TaskRunner
 
@@ -27,8 +27,12 @@ class DiagnosticService:
         instance = await self.registry.get_instance(instance_id)
         if instance is None:
             raise PermissionError("instance is not allowed")
-        authorize(instance, "mysql.health")
-        playbook = plan(problem_type)
+        authorize_instance(instance)
+        playbook = plan(problem_type, database_type=instance.type)
+        if instance.type == "redis" and window is not None:
+            raise UnsupportedDiagnosis("Redis historical windows are not supported")
+        for tool_id in playbook.required_tools:
+            authorize(instance, tool_id)
         if parent_task_id:
             parent = await self.store.get_task(parent_task_id)
             if (
@@ -42,7 +46,7 @@ class DiagnosticService:
             raise OverflowError("local pending task limit reached")
         task = DiagnosticTask(
             instance_id=instance_id,
-            database_type="mysql",
+            database_type=instance.type,
             problem_type=problem_type,
             requested_by=requested_by,
             window=window,

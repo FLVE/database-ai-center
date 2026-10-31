@@ -5,3 +5,9 @@ instances:
     version: "8.4"
     connection_ref: env:MYSQL_LAB_DSN
     enabled: true
+  - id: redis-lab-01
+    type: redis
+    environment: lab
+    version: "8.4"
+    connection_ref: env:REDIS_LAB_DSN
+    enabled: true

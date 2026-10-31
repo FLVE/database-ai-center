@@ -10,7 +10,7 @@ import pymysql
 from pydantic import JsonValue
 
 from dbic.core.models import EvidenceStatus, ToolResult, utc_now
-from dbic.core.policy import TOOLS
+from dbic.core.policy import MYSQL_TOOLS
 from dbic.plugins.mysql import queries
 
 logger = logging.getLogger("dbic.mysql")
@@ -77,7 +77,7 @@ class MySQLDiagnostics:
     async def run(
         self, *, tool_id: str, instance_id: str, params: dict[str, JsonValue]
     ) -> ToolResult:
-        if tool_id not in TOOLS or instance_id != "mysql-lab-01" or params:
+        if tool_id not in MYSQL_TOOLS or instance_id != "mysql-lab-01" or params:
             return ToolResult(
                 status="forbidden",
                 source=tool_id,

@@ -1,0 +1,6 @@
+id: redis.memory_pressure
+version: 1
+required_tools:
+  - redis.memory_breakdown
+  - redis.slowlog_summary
+  - redis.bigkey_audit_read

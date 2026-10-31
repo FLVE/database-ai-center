@@ -6,7 +6,7 @@ import httpx
 
 from dbic.adapters.agent.deepseek import deepseek_schema
 from dbic.core.models import AgentAdvice, DiagnosticTask, Evidence, Finding, Report
-from dbic.core.policy import TOOLS
+from dbic.core.policy import MYSQL_TOOLS
 from dbic.core.report import rule_report
 from dbic.settings import Settings
 
@@ -34,7 +34,7 @@ class CompatibleAgentRuntime:
             "slow_query",
         }:
             raise ValueError("invalid agent task")
-        allowed_sources = TOOLS | {
+        allowed_sources = MYSQL_TOOLS | {
             "metrics.mysql_connections",
             "metrics.mysql_slow_queries",
             "search.mysql_events",

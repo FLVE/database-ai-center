@@ -58,7 +58,7 @@ def main():
     require(request("/api/v1/capabilities", "invalid")[0] == 401, "wrong token was accepted")
     status, capabilities = request("/api/v1/capabilities", token)
     require(
-        status == 200 and capabilities["milestone"] in {"M1", "M2", "M3"},
+        status == 200 and capabilities["milestone"] in {"M1", "M2", "M3", "M4"},
         "M1+ image is not deployed",
     )
     for problem in ("lock_wait", "slow_query"):
@@ -104,6 +104,7 @@ def main():
         "Starting isolated test databases; running service databases are not test targets",
         flush=True,
     )
+    subprocess.run([sys.executable, "scripts/init_redis_lab.py", "--test"], check=True)
     subprocess.run(
         COMPOSE + ["--profile", "verify", "run", "--build", "--rm", "dbic-tests"], check=True
     )

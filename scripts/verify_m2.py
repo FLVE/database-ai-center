@@ -95,7 +95,8 @@ def main():
     require(request("/api/v1/capabilities", "invalid")[0] == 401, "wrong token accepted")
     status, capabilities = request("/api/v1/capabilities", token)
     require(
-        status == 200 and capabilities["milestone"] in {"M2", "M3"}, "deploy an M2+ image first"
+        status == 200 and capabilities["milestone"] in {"M2", "M3", "M4"},
+        "deploy an M2+ image first",
     )
     backends = capabilities["historical_backends"]
     if args.require_history:
@@ -173,6 +174,7 @@ def main():
             flush=True,
         )
     if not args.skip_suite:
+        subprocess.run([sys.executable, "scripts/init_redis_lab.py", "--test"], check=True)
         subprocess.run(
             COMPOSE + ["--profile", "verify", "run", "--build", "--rm", "dbic-tests"], check=True
         )

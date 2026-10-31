@@ -25,14 +25,20 @@ def test_health_readiness_and_auth(available):
             assert client.get("/api/v1/capabilities", headers=headers).status_code == 401
         headers = {"Authorization": f"Bearer {TOKEN}"}
         result = client.get("/api/v1/capabilities", headers=headers).json()
-        assert result["milestone"] == "M3"
+        assert result["milestone"] == "M4"
         assert result["agent_backend"] == "null" and result["mcp_enabled"] is False
         assert result["historical_backends"] == {"metrics": "null", "search": "null"}
         assert len(result["databases"]) == 5
         assert result["databases"][0]["status"] == "available"
         assert all(
-            x["status"] == "not_implemented" and x["tools"] == [] for x in result["databases"][1:]
+            x["status"] == "not_implemented" and x["tools"] == [] for x in result["databases"][2:]
         )
+        assert result["databases"][1] == {
+            "database_type": "redis",
+            "status": "available",
+            "enabled": False,
+            "tools": [],
+        }
         assert client.get("/openapi.json").status_code == 401
         schema = client.get("/openapi.json", headers=headers).json()
         assert "/api/v1/diagnoses" in schema["paths"]

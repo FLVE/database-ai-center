@@ -10,6 +10,8 @@ class RuleResult(Model):
 
 
 def evaluate(problem_type: str, evidence: list[Evidence]) -> RuleResult:
+    if problem_type not in {"lock_wait", "slow_query"}:
+        return RuleResult(status="inconclusive", findings=[])
     source = "mysql.lock_chain" if problem_type == "lock_wait" else "mysql.slow_query_summary"
     item = next((e for e in evidence if e.source == source), None)
     if item is None or item.status not in {"ok", "empty"}:

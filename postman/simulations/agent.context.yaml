@@ -16,3 +16,16 @@ claims:
     status: observed
     verification: postman whoami returned no account details.
     reason: This local repository fixture has no cloud workspace or publishing dependency.
+assumptions:
+  - id: m4-mysql-provider-regression
+    status: supported
+    claim: The MySQL model adapter retains bounded suggestions and rule fallback for both request dialects during M4.1 changes.
+    reason: The existing real HTTP simulation covered success, 401, 429, 503, timeout and forged references for generic and DeepSeek requests. This is client regression evidence, not a new real-provider validation.
+    verification: 2026-10-31; host full suite 334 passed, 15 skipped included all 12 simulation cases; simulation log recorded 12 POST requests across /v1/chat/completions and /beta/chat/completions.
+    source: tests/integration/test_agent_simulation.py; postman/mocks/llm/default.js; dist/m4-simulation.ndjson (local ignored run log)
+    updated_at: "2026-10-31"
+fingerprints:
+  - id: m4-working-tree
+    date: "2026-10-31"
+    commit: bc26f16 plus uncommitted M4.1 changes
+    cli: "1.74.0"

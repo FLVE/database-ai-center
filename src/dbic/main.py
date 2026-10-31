@@ -17,15 +17,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from dbic.adapters.agent.factory import agent_runtime
+from dbic.adapters.diagnostic_tools import DiagnosticTools
 from dbic.adapters.history_factory import historical_adapters
 from dbic.adapters.persistence.postgres import create_database, database_ready
 from dbic.adapters.persistence.tasks import PostgresTaskStore
 from dbic.adapters.registry import YamlRegistry
 from dbic.api.routes.diagnoses import router as diagnoses_router
 from dbic.api.service import DiagnosticService
+from dbic.core.policy import DATABASE_TOOLS, authorize_instance
 from dbic.core.runner import TaskRunner
 from dbic.mcp.server import create_mcp
 from dbic.plugins.mysql.diagnostics import MySQLDiagnostics
+from dbic.plugins.redis.diagnostics import RedisDiagnostics
 from dbic.settings import Settings
 
 logger = logging.getLogger("dbic")
@@ -40,14 +43,16 @@ class Capability(BaseModel):
     database_type: str
     status: Literal["available", "not_implemented"] = "not_implemented"
     tools: list[str] = []
+    enabled: bool = False
 
 
 class Capabilities(BaseModel):
-    milestone: Literal["M3"] = "M3"
+    milestone: Literal["M4"] = "M4"
     historical_backends: dict[str, str]
     agent_backend: str
     mcp_enabled: bool
     databases: list[Capability]
+    agent_database_types: list[str] = ["mysql"]
 
 
 class ErrorBody(BaseModel):
@@ -76,9 +81,14 @@ def create_app(
 
         app.state.readiness = readiness or check_database
         if diagnostics is None:
-            registry = YamlRegistry(config.configs_dir / "instances.yaml")
+            registry = YamlRegistry(
+                config.configs_dir / "instances.yaml", redis_enabled=config.redis_enabled
+            )
             store = PostgresTaskStore(engine)
-            tools = MySQLDiagnostics(config.mysql_dsn())
+            tools = DiagnosticTools(
+                MySQLDiagnostics(config.mysql_dsn()),
+                RedisDiagnostics(config.redis_diag_password, config.redis_audit_dir),
+            )
             metrics, search = historical_adapters(config)
             app.state.diagnostics = DiagnosticService(
                 registry,
@@ -100,7 +110,7 @@ def create_app(
 
     app = FastAPI(
         title="Database AI Center",
-        version="0.4.0",
+        version="0.5.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -212,7 +222,25 @@ def create_app(
         dependencies=[Depends(authorize)],
         responses={401: {"model": ErrorBody}},
     )
-    def capabilities() -> Capabilities:
+    async def capabilities(request: Request) -> Capabilities:
+        databases = []
+        for kind in ("mysql", "redis", "mongodb", "postgresql", "doris"):
+            enabled = False
+            instance = await request.app.state.diagnostics.registry.get_instance(f"{kind}-lab-01")
+            if instance is not None:
+                try:
+                    authorize_instance(instance)
+                    enabled = True
+                except PermissionError:
+                    enabled = False
+            databases.append(
+                Capability(
+                    database_type=kind,
+                    status="available" if kind in DATABASE_TOOLS else "not_implemented",
+                    enabled=enabled,
+                    tools=sorted(DATABASE_TOOLS[kind]) if enabled else [],
+                )
+            )
         return Capabilities(
             agent_backend=config.agent_backend,
             mcp_enabled=config.mcp_enabled,
@@ -220,17 +248,7 @@ def create_app(
                 "metrics": config.metrics_backend,
                 "search": config.search_backend,
             },
-            databases=[
-                Capability(
-                    database_type="mysql",
-                    status="available",
-                    tools=["mysql.health", "mysql.lock_chain", "mysql.slow_query_summary"],
-                )
-            ]
-            + [
-                Capability(database_type=kind)
-                for kind in ("redis", "mongodb", "postgresql", "doris")
-            ],
+            databases=databases,
         )
 
     @app.get("/openapi.json", dependencies=[Depends(authorize)], include_in_schema=False)
