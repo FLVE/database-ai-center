@@ -316,3 +316,38 @@ export function renderFeedback(items) {
     $("feedback-list").append(row);
   });
 }
+
+export function renderTaskHistory(items, openTask) {
+  $("history-rows").replaceChildren();
+  for (const item of items) {
+    const row = el("tr");
+    const created = el("td", time(item.created_at), "history-created");
+    created.dataset.label = "创建时间";
+    const instance = el("td");
+    instance.dataset.label = "实例";
+    instance.append(
+      el("span", item.instance_id, "mono"),
+      el("small", databaseNames[item.database_type] || item.database_type),
+    );
+    const problem = el("td");
+    problem.dataset.label = "调查问题";
+    const name = item.problem_type.startsWith("tool:")
+      ? `单工具检查 · ${item.problem_type.slice(5)}`
+      : problemNames[item.problem_type] || item.problem_type;
+    problem.append(el("span", name), el("small", item.task_id, "mono"));
+    const status = el("td");
+    status.dataset.label = "状态";
+    status.append(badge(item.status));
+    const action = el("td");
+    action.dataset.label = "操作";
+    const open = button(
+      "打开报告 →",
+      () => openTask(item.task_id),
+      "quiet history-open",
+    );
+    open.setAttribute("aria-label", `打开任务 ${item.task_id}`);
+    action.append(open);
+    row.append(created, instance, problem, status, action);
+    $("history-rows").append(row);
+  }
+}

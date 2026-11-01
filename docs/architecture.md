@@ -356,3 +356,12 @@ Policy 授权结果和 Playbook 问题列表；enabled 不代表连接健康。�
 任务链接只包含 UUID；本次会话列表仅在内存保存，不是服务器历史列表。
 任务失败或缺失证据按原语义显示，不自动重试创建请求、执行模型建议或开放任意查询。
 第一版沿用单用户 lab 权限，不提供公网登录、多用户/SSO，也不依赖 DBX。
+
+## 20. 网页 V1.1 任务历史
+
+用户授权补充服务器端历史，契约见 [web-v11-plan.md](web-v11-plan.md)。
+新增 Bearer 保护的 `GET /api/v1/diagnoses`，只读 PostgreSQL 任务摘要，支持实例、状态、
+创建时间半开区间与复合游标分页。任务详情等原接口保持兼容；不查询 Elastic/模型或业务数据库。
+TaskStorePort 新增 list_tasks；core 保持标准库/Pydantic 边界。迁移 0003_web_history 仅添加索引。
+应用/OpenAPI/MCP/新报告版本为 0.10.0，readyz 要求 0003_web_history；旧报告保持原版本。
+历史权限与现有单用户详情读取一致，包含 MCP 和已禁用实例的旧记录，不开放生产或多用户权限。

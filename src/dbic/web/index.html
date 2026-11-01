@@ -62,6 +62,14 @@
           <span class="brand-mark" aria-hidden="true">D</span
           ><span>DBIC<small>诊断工作台</small></span>
         </div>
+        <button
+          id="history-nav"
+          class="history-nav"
+          type="button"
+          aria-current="false"
+        >
+          任务历史 <span aria-hidden="true">↗</span>
+        </button>
         <div class="sidebar-heading">
           <h2>数据库实例</h2>
           <span id="instance-count" class="count"></span>
@@ -116,6 +124,101 @@
             </button>
           </div>
           <div id="notice" class="notice" role="status" hidden></div>
+          <section
+            id="history-view"
+            class="panel"
+            aria-labelledby="history-title"
+            hidden
+          >
+            <div class="panel-heading">
+              <div>
+                <h2 id="history-title" tabindex="-1">任务历史</h2>
+                <p class="field-hint">
+                  服务器保存的全部调查与单工具检查，按创建时间倒序。
+                </p>
+              </div>
+              <button id="history-refresh" class="quiet" type="button">
+                刷新列表
+              </button>
+            </div>
+            <form id="history-form" class="history-filters">
+              <div>
+                <label for="history-instance">实例</label
+                ><input
+                  id="history-instance"
+                  list="history-instance-options"
+                  maxlength="100"
+                  placeholder="全部实例"
+                  autocomplete="off"
+                  spellcheck="false"
+                /><datalist id="history-instance-options"></datalist>
+              </div>
+              <div>
+                <label for="history-status">任务状态</label
+                ><select id="history-status">
+                  <option value="">全部状态</option>
+                  <option value="queued">排队中</option>
+                  <option value="running">调查中</option>
+                  <option value="completed">检查完成</option>
+                  <option value="partial">部分完成</option>
+                  <option value="failed">执行失败</option>
+                  <option value="cancelled">已取消</option>
+                </select>
+              </div>
+              <div>
+                <label for="history-from">创建起点（含）</label
+                ><input id="history-from" type="datetime-local" />
+              </div>
+              <div>
+                <label for="history-until">创建终点（不含）</label
+                ><input id="history-until" type="datetime-local" />
+              </div>
+              <div>
+                <label for="history-limit">每页条数</label
+                ><select id="history-limit">
+                  <option value="10">10</option>
+                  <option value="20" selected>20</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
+              <div class="history-filter-actions">
+                <button class="primary" type="submit">筛选</button
+                ><button id="history-reset" class="quiet" type="button">
+                  清除
+                </button>
+              </div>
+            </form>
+            <p id="history-timezone" class="field-hint"></p>
+            <p id="history-message" class="history-message" role="status"></p>
+            <div id="history-table-wrap" hidden>
+              <table class="history-table">
+                <caption class="sr-only">
+                  已保存的诊断任务
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">创建时间</th>
+                    <th scope="col">实例</th>
+                    <th scope="col">调查问题 / 任务 ID</th>
+                    <th scope="col">状态</th>
+                    <th scope="col">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="history-rows"></tbody>
+              </table>
+            </div>
+            <div class="history-pagination">
+              <button id="history-prev" class="quiet" type="button" disabled>
+                ← 上一页</button
+              ><span id="history-page" class="field-hint"></span
+              ><button id="history-next" class="quiet" type="button" disabled>
+                下一页 →
+              </button>
+            </div>
+            <p class="field-hint">
+              列表包含当前状态；刷新可查看新任务。状态变化可能影响筛选结果，检查完成不等于数据库正常。
+            </p>
+          </section>
           <div class="investigation-layout">
             <dialog
               id="create-dialog"
@@ -209,6 +312,14 @@
                 </div>
               </div>
               <article id="task-view" hidden>
+                <button
+                  id="return-history"
+                  class="quiet return-history"
+                  type="button"
+                  hidden
+                >
+                  ← 返回任务历史
+                </button>
                 <section class="panel task-header">
                   <div class="task-title-row">
                     <div>

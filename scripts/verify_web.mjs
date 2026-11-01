@@ -61,17 +61,45 @@ try {
   const detail = await response.json();
   if (!detail.feedback.some((item) => item.comment === comment))
     throw new Error("Feedback was not persisted");
-  if (detail.report.generator_version !== "0.9.0")
-    throw new Error("Expected web V1 runtime");
+  if (detail.report.generator_version !== "0.10.0")
+    throw new Error("Expected web V1.1 runtime");
   if (errors.length) throw new Error(`Browser script errors: ${errors.length}`);
   await page.getByRole("tab", { name: "调查报告" }).click();
   await page.screenshot({ path: "dist/web/desktop-live.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "dist/web/mobile-live.png", fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("button", { name: "任务历史", exact: false }).click();
+  await expect(page.locator("#history-view")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await page.locator("#history-instance").fill("mysql-lab-01");
+  await page.locator("#history-status").selectOption(detail.task.status);
+  await page.locator("#history-limit").selectOption("10");
+  await page.getByRole("button", { name: "筛选", exact: true }).click();
+  const archivedTask = page.getByRole("button", {
+    name: `打开任务 ${taskId}`,
+    exact: true,
+  });
+  await expect(archivedTask).toBeVisible();
+  await archivedTask.click();
+  await expect(page.locator("#current-task-id")).toHaveText(taskId);
+  await page.getByRole("button", { name: "返回任务历史" }).click();
+  await expect(page.locator("#history-instance")).toHaveValue("mysql-lab-01");
+  await expect(archivedTask).toBeVisible();
+  await page.screenshot({ path: "dist/web/history-live.png", fullPage: true });
+  await page.reload();
+  await page.getByLabel("访问令牌", { exact: true }).fill(token);
+  await page.getByRole("button", { name: "进入工作台" }).click();
+  await expect(page.locator("#history-view")).toBeVisible();
+  await expect(archivedTask).toBeVisible();
+  await expect(page.locator("#session-list")).toContainText("还没有打开的调查");
   await page.getByRole("button", { name: "退出", exact: true }).click();
   await expect(page.locator("#report-content")).toBeEmpty();
+  await expect(page.locator("#history-rows")).toBeEmpty();
   console.log(
-    `PASS: live lab browser login, five instances, MySQL task ${taskId}, evidence, persisted feedback, logout`,
+    `PASS: live lab browser login, five instances, MySQL task ${taskId}, evidence, persisted feedback, server history after reload, logout`,
   );
 } finally {
   await browser.close();

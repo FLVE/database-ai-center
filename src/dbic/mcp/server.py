@@ -29,7 +29,7 @@ MCP_TOOLS = {
 
 class DiagnosticMCP(MCPServer[None]):
     def __init__(self, service: Callable[[], DiagnosticService]) -> None:
-        super().__init__("Database AI Center", version="0.9.0")
+        super().__init__("Database AI Center", version="0.10.0")
         self.service = service
 
     async def list_tools(self) -> list[Tool]:

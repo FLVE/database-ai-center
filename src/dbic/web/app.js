@@ -12,6 +12,7 @@ import {
   renderEvidence,
   renderFeedback,
   showEvidence,
+  renderTaskHistory,
 } from "./ui.js";
 
 const state = {
@@ -28,6 +29,14 @@ const state = {
   feedbackBusy: false,
 };
 const requests = new Set();
+const taskHistory = {
+  generation: 0,
+  filters: null,
+  cursors: [null],
+  page: 0,
+  next: null,
+  busy: false,
+};
 let pollTimer;
 let pollingSince = 0;
 const uuidPattern =
@@ -91,6 +100,7 @@ function clearTask() {
   $("feedback-form").reset();
   $("feedback-fields").disabled = true;
   $("task-view").hidden = true;
+  $("return-history").hidden = true;
   $("empty-state").hidden = false;
 }
 function logout(message = "") {
@@ -98,6 +108,19 @@ function logout(message = "") {
   state.token = "";
   requests.forEach((controller) => controller.abort());
   clearTask();
+  leaveHistory();
+  taskHistory.filters = null;
+  taskHistory.cursors = [null];
+  taskHistory.page = 0;
+  taskHistory.next = null;
+  $("history-form").reset();
+  for (const id of [
+    "history-rows",
+    "history-message",
+    "history-page",
+    "history-instance-options",
+  ])
+    $(id).replaceChildren();
   $("create-dialog").close();
   state.instances = [];
   state.capabilities = null;
@@ -240,7 +263,9 @@ function updateInstance() {
   for (const node of $("instance-list").children)
     node.setAttribute(
       "aria-current",
-      String(node.dataset.instance === instance?.id),
+      String(
+        $("history-view").hidden && node.dataset.instance === instance?.id,
+      ),
     );
   renderOverview(instance);
 }
@@ -308,6 +333,7 @@ function renderInstances(previous) {
     const node = button(
       "",
       () => {
+        leaveHistory();
         clearTask();
         notice("");
         history.replaceState(null, "", location.pathname);
@@ -355,6 +381,125 @@ async function loadCapabilities() {
   state.instances = instances;
   state.capabilities = capabilities;
   renderInstances(previous);
+  $("history-instance-options").replaceChildren();
+  for (const instance of instances) {
+    const option = el("option");
+    option.value = instance.id;
+    option.label = `${databaseNames[instance.database_type]}${instance.enabled ? "" : "（未启用，历史可读）"}`;
+    $("history-instance-options").append(option);
+  }
+}
+
+function leaveHistory() {
+  taskHistory.generation++;
+  taskHistory.busy = false;
+  $("history-view").hidden = true;
+  $("history-nav").setAttribute("aria-current", "false");
+}
+function historyFilters() {
+  const filters = { limit: $("history-limit").value };
+  if ($("history-instance").value.trim())
+    filters.instance_id = $("history-instance").value.trim();
+  if ($("history-status").value) filters.status = $("history-status").value;
+  for (const [id, key] of [
+    ["history-from", "created_from"],
+    ["history-until", "created_until"],
+  ]) {
+    if ($(id).value) {
+      const date = new Date($(id).value);
+      if (!Number.isFinite(date.getTime()))
+        throw new ApiError("请填写有效的任务创建时间。");
+      filters[key] = date.toISOString();
+    }
+  }
+  if (
+    filters.created_from &&
+    filters.created_until &&
+    filters.created_until <= filters.created_from
+  )
+    throw new ApiError("创建终点必须晚于创建起点。筛选的是任务创建时间。");
+  return filters;
+}
+function historyButtons() {
+  $("history-prev").disabled = taskHistory.busy || taskHistory.page === 0;
+  $("history-next").disabled = taskHistory.busy || !taskHistory.next;
+}
+async function loadHistoryPage(index = taskHistory.page) {
+  const generation = ++taskHistory.generation;
+  const auth = state.auth;
+  taskHistory.page = index;
+  taskHistory.busy = true;
+  taskHistory.next = null;
+  historyButtons();
+  $("history-view").setAttribute("aria-busy", "true");
+  $("history-table-wrap").hidden = true;
+  $("history-rows").replaceChildren();
+  $("history-page").textContent = "";
+  $("history-message").textContent = "正在读取服务器任务历史…";
+  const params = new URLSearchParams(taskHistory.filters);
+  if (taskHistory.cursors[index])
+    params.set("cursor", taskHistory.cursors[index]);
+  const current = () =>
+    state.auth === auth &&
+    generation === taskHistory.generation &&
+    !$("history-view").hidden;
+  try {
+    const page = await api(`/api/v1/diagnoses?${params}`);
+    if (!current()) return;
+    taskHistory.next = page.next_cursor;
+    renderTaskHistory(page.items, (id) => openTask(id).catch(showError));
+    $("history-table-wrap").hidden = !page.items.length;
+    $("history-message").textContent = page.items.length
+      ? ""
+      : "没有符合条件的任务。可清除筛选或发起一次新诊断。";
+    $("history-page").textContent =
+      `第 ${index + 1} 页 · 本页 ${page.items.length} 条`;
+  } catch (error) {
+    if (!current() || error.name === "AbortError") return;
+    $("history-message").textContent =
+      `${errorMessage(error)} 点击“刷新列表”可重新读取。`;
+  } finally {
+    if (current()) {
+      taskHistory.busy = false;
+      $("history-view").setAttribute("aria-busy", "false");
+      historyButtons();
+    }
+  }
+}
+function applyHistoryFilters() {
+  taskHistory.generation++;
+  taskHistory.busy = false;
+  taskHistory.next = null;
+  $("history-view").setAttribute("aria-busy", "false");
+  $("history-table-wrap").hidden = true;
+  $("history-rows").replaceChildren();
+  $("history-page").textContent = "";
+  taskHistory.cursors = [null];
+  taskHistory.page = 0;
+  historyButtons();
+  try {
+    taskHistory.filters = historyFilters();
+  } catch (error) {
+    taskHistory.filters = null;
+    $("history-message").textContent = errorMessage(error);
+    return;
+  }
+  void loadHistoryPage(0);
+}
+function openHistory() {
+  clearTask();
+  $("create-dialog").close();
+  notice("");
+  $("empty-state").hidden = true;
+  $("history-view").hidden = false;
+  $("history-nav").setAttribute("aria-current", "page");
+  for (const node of $("instance-list").children)
+    node.setAttribute("aria-current", "false");
+  renderSessions();
+  history.replaceState(null, "", "#history");
+  $("history-title").focus({ preventScroll: true });
+  if (taskHistory.filters) void loadHistoryPage();
+  else applyHistoryFilters();
 }
 async function checkReadiness() {
   try {
@@ -462,7 +607,10 @@ async function refreshTask(generation = state.generation) {
 async function openTask(id) {
   if (!uuidPattern.test(id))
     throw new ApiError("请输入完整、有效的任务 UUID。");
+  const fromHistory = !$("history-view").hidden;
+  leaveHistory();
   clearTask();
+  $("return-history").hidden = !fromHistory;
   notice("");
   state.taskId = id.toLowerCase();
   pollingSince = Date.now();
@@ -503,6 +651,7 @@ $("login-form").addEventListener("submit", async (event) => {
     await checkReadiness();
     const id = location.hash.startsWith("#task/") ? location.hash.slice(6) : "";
     if (id && state.token) await openTask(id);
+    else if (state.token && location.hash === "#history") openHistory();
   } catch (error) {
     if (!$("login-view").hidden) {
       state.token = "";
@@ -513,6 +662,29 @@ $("login-form").addEventListener("submit", async (event) => {
   }
 });
 $("logout").addEventListener("click", () => logout());
+$("history-nav").addEventListener("click", openHistory);
+$("return-history").addEventListener("click", openHistory);
+$("history-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  applyHistoryFilters();
+});
+$("history-reset").addEventListener("click", () => {
+  $("history-form").reset();
+  applyHistoryFilters();
+});
+$("history-refresh").addEventListener("click", applyHistoryFilters);
+$("history-prev").addEventListener("click", () => {
+  if (!taskHistory.busy && taskHistory.page > 0)
+    void loadHistoryPage(taskHistory.page - 1);
+});
+$("history-next").addEventListener("click", () => {
+  if (taskHistory.busy || !taskHistory.next) return;
+  taskHistory.cursors = taskHistory.cursors.slice(0, taskHistory.page + 1);
+  taskHistory.cursors.push(taskHistory.next);
+  void loadHistoryPage(taskHistory.page + 1);
+});
+$("history-timezone").textContent =
+  `按本机时区 ${Intl.DateTimeFormat().resolvedOptions().timeZone} 筛选任务创建时间，与报告内的历史证据窗口无关。`;
 $("new-diagnosis").addEventListener("click", showCreate);
 $("close-create").addEventListener("click", () => $("create-dialog").close());
 for (const [index, name] of tabNames.entries()) {
@@ -687,6 +859,7 @@ $("close-evidence").addEventListener("click", () =>
 window.addEventListener("hashchange", () => {
   if (state.token && location.hash.startsWith("#task/"))
     openTask(location.hash.slice(6)).catch(showError);
+  else if (state.token && location.hash === "#history") openHistory();
 });
 window.addEventListener("pagehide", () => {
   clearTimeout(pollTimer);

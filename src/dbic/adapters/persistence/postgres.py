@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from dbic.settings import Settings
 
-SCHEMA_REVISION = "0002_m1"
+SCHEMA_REVISION = "0003_web_history"
 
 
 def create_database(settings: Settings) -> Engine:

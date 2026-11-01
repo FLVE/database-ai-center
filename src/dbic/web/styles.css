@@ -1278,3 +1278,216 @@ dialog::backdrop {
     transition: none !important;
   }
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.history-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+.history-nav:hover,
+.history-nav[aria-current="page"] {
+  color: var(--blue);
+  background: #eeeffa;
+  border-color: #d9dbf0;
+}
+.history-filters {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.2fr) minmax(110px, 0.8fr) repeat(
+      2,
+      minmax(165px, 1fr)
+    ) 80px;
+  gap: 12px;
+  padding: 14px 0 6px;
+  border-top: 1px solid var(--line);
+}
+.history-filters > div {
+  min-width: 0;
+}
+.history-filters label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.history-filters input,
+.history-filters select {
+  min-width: 0;
+  padding: 8px;
+  font-size: 12px;
+}
+.history-filter-actions {
+  display: flex;
+  gap: 6px;
+  grid-column: 1 / -1;
+}
+.history-filter-actions .primary {
+  padding: 6px 18px;
+  font-size: 12px;
+}
+.history-message:not(:empty) {
+  padding: 35px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 22px;
+  table-layout: fixed;
+  text-align: left;
+}
+.history-table th {
+  padding: 10px 8px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  border-block: 1px solid var(--line);
+}
+.history-table th:nth-child(1) {
+  width: 18%;
+}
+.history-table th:nth-child(2) {
+  width: 20%;
+}
+.history-table th:nth-child(3) {
+  width: 40%;
+}
+.history-table th:nth-child(4) {
+  width: 11%;
+}
+.history-table th:nth-child(5) {
+  width: 11%;
+}
+.history-table td {
+  padding: 15px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+.history-table small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.history-table tr:hover td {
+  background: #fafaff;
+}
+.history-created {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.history-open {
+  color: var(--blue);
+  padding: 6px 0;
+  font-size: 11px;
+}
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.history-pagination .field-hint {
+  margin-top: 0;
+  font-size: 11px;
+}
+.return-history {
+  margin-bottom: 12px;
+  padding-left: 0;
+  color: var(--blue);
+}
+@media (max-width: 1100px) {
+  .history-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .history-filter-actions {
+    grid-column: auto;
+    align-items: end;
+  }
+  .history-table th:nth-child(1) {
+    width: 16%;
+  }
+  .history-table th:nth-child(2) {
+    width: 22%;
+  }
+  .history-table th:nth-child(3) {
+    width: 35%;
+  }
+  .history-table th:nth-child(4) {
+    width: 14%;
+  }
+  .history-table th:nth-child(5) {
+    width: 13%;
+  }
+}
+@media (max-width: 720px) {
+  .history-nav {
+    margin: 8px 0 16px;
+  }
+  .history-table,
+  .history-table tbody,
+  .history-table tr,
+  .history-table td {
+    display: block;
+    width: 100%;
+  }
+  .history-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+  }
+  .history-table tr {
+    border-top: 1px solid var(--line);
+    padding: 12px 0;
+  }
+  .history-table td {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr);
+    gap: 4px 10px;
+    border: 0;
+    padding: 6px 0;
+  }
+  .history-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 11px;
+    grid-row: 1 / span 2;
+  }
+  .history-table td > * {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .history-table td small {
+    margin-top: 0;
+  }
+  .history-table td.history-created::before {
+    grid-row: auto;
+  }
+  .history-pagination {
+    gap: 4px;
+  }
+}

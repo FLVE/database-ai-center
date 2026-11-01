@@ -3,7 +3,7 @@
 2026-10-31：本地实现及启动完成，应用/OpenAPI/MCP/新报告版本为 **0.9.0**。
 M4 工具、任务与证据契约保持兼容，迁移仍为 0002_m1。
 以下为本地验收记录；用户随后已授权将网页 V1 与改版统一提交/推送 GitHub。
-远程服务器尚未升级网页，不能将本地验证当作远程验收。
+远程已于 2026-11-01 升级并独立验收，结果见本文“远程发布与验收”；本地与远程证据分别记录。
 
 ## 入口与使用
 
@@ -54,7 +54,7 @@ curl --noproxy '*' --fail http://127.0.0.1:8086/readyz
 ```
 
 服务仍仅发布 `127.0.0.1:8086`。本机有额外 ES/模型私有 override 时必须继续叠加原配置。
-远程尚未升级网页，不应直接套用上述本机参数覆盖服务器的 ES/M3 override。
+远程必须使用本文远程发布部分的完整参数，不能直接套用上述本机参数覆盖服务器的 ES/M3 override。
 
 ## 首次 V1 已执行验证
 
@@ -144,7 +144,86 @@ docker image tag dbic-lab-dbic-api:rollback-web-v1 dbic-lab-dbic-api:latest
 dc_web up -d --no-deps --no-build --pull never --force-recreate --wait dbic-api
 ```
 
-只读确认镜像标签存在；未实际回退。尚未提交/推送 GitHub，也未升级远程服务器。
+只读确认镜像标签存在；未实际回退。上述改版本地验收完成时尚未推送或更新远程；后续发布见下文。
+
+## 远程发布与验收
+
+2026-11-01，经用户授权，`root@106.52.59.184:/root/database-ai-center` 已从 0.8.0 升级到
+**0.9.0 / a683dcd9d0b04083bb651499e6ca5c49bed24987**。
+[该提交 GitHub CI](https://github.com/FLVE/database-ai-center/actions/runs/41210446823) 全部通过，
+包括 Python、静态检查和 9 项 Chromium 浏览器测试。
+
+发布过程与保留范围：
+
+- 服务器直连 GitHub 拉取 30 秒超时；使用同一提交 Git bundle，经 SHA256 与 `git bundle verify`
+  校验后从 `178cc62` 快进到 `a683dcd`，没有重置或覆盖私有文件。
+- 应用 wheel 的源码和四个静态资源逐文件与提交核对；SHA256 为
+  `103679fa30e61dd12c17e8f2ce1441e5b4d188b7fadac6d079f3263d2a25b5c2`。
+- 保留原运行镜像为 `dbic-lab-dbic-api:rollback-pre-web-a683dcd`，以其为基线 `--network none`
+  离线构建 `dbic-remote-runtime:a683dcd-amd64`。同步已提交的源码、配置模板、迁移和锁文件，
+  只重新安装应用 wheel；全部运行依赖逐项与 uv.lock 一致，无新依赖或迁移。
+- 切换前元数据库中 queued/running 任务为 0；只重建 `dbic-api`。最终容器 `1ba21af8e00d` healthy，
+  仍只绑定 `127.0.0.1:8086`；其他 15 个运行容器的 ID 和启动时间完全未变。
+- 原 `.env`、ES/M3 override、四类 lab 凭据文件 SHA256、API 环境变量指纹及端口绑定均未变。
+  没有修改 ES/Kibana、监控服务、数据库 lab 或生产数据库。升级后可用内存约 889 MiB，未做容量测试。
+
+本次实际验证：
+
+```bash
+python3 scripts/verify_m4.py --require-mcp
+python3 scripts/verify_m42.py --require-mcp
+python3 scripts/verify_m4_remaining.py --database postgresql --require-mcp
+python3 scripts/verify_m4_remaining.py --database doris --require-mcp
+python3 scripts/verify_m3.py --require-mcp
+python3 scripts/verify_m2.py --skip-suite --require-search \
+  --start 2026-10-31T00:00:00Z --end 2026-10-31T00:30:00Z
+python3 scripts/verify_agent.py
+```
+
+- 五类 lab REST/MCP 全部通过；Redis audit 缺失、MySQL digest 无样本等继续明确降级。
+- ES 历史事件证据通过；metrics=null 保持原有降级。真实 DeepSeek 的 lock_wait / slow_query
+  都为 agent_status=ok，分别 2 / 3 条建议，没有自动执行建议。
+- healthz/readyz 为 200；匿名/错误令牌的实例接口和 OpenAPI 为 401；受保护 OpenAPI 为 0.9.0。
+  实例接口五类均启用且仅包含显示字段；公开网页资源与提交逐字节一致，CSP/no-store 保持有效。
+- 本机 Chromium 通过 SSH 隧道访问远程，复用 `scripts/verify_web.mjs` 的流程，仅调整目标地址和
+  内存凭据读取为 SSH：登录、五类显示、真实 MySQL 诊断、证据、反馈回读和退出全部通过。
+  任务 `23b0b5f3-52e1-48b3-93ab-3ac32faf9dd9`，两条证据；反馈明确标记网页验收，不代表确认根因。
+  浏览器无脚本错误。查看桌面与 390px 手机截图，AI 建议正常显示。
+- 远程浏览器验收副本在 Git 忽略的 `dist/web-remote-a683dcd/verify-browser.mjs`，
+  截图在该目录的 `screenshots/`。服务器构建材料在同名 dist 目录，不包含凭据。
+  本次没有重跑完整隔离实库套件或 Safari/Firefox；不能将 Chromium 视口测试视为真机测试。
+
+远程网页通过本机 SSH 隧道访问 **http://127.0.0.1:18086/**，输入服务器 `.env` 中的
+`DBIC_API_TOKEN`。本次已建立隧道；断开后在 Mac 终端重新运行：
+
+```bash
+ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
+  -L 127.0.0.1:18086:127.0.0.1:8086 cloud-remote
+```
+
+远程日常命令保持完整参数：
+
+```bash
+cd /root/database-ai-center
+dc_web_remote() {
+  docker compose --env-file .env \
+    --env-file dist/redis-lab/redis.env --env-file dist/mongodb-lab/mongodb.env \
+    --env-file dist/postgresql-lab/postgresql.env --env-file dist/doris-lab/doris.env \
+    -f deploy/compose.yaml -f deploy/compose.es.local.yaml -f deploy/compose.m3.local.yaml \
+    -f deploy/compose.mongodb.yaml -f deploy/compose.postgresql.yaml -f deploy/compose.doris.yaml \
+    --profile mongodb --profile postgresql --profile doris "$@"
+}
+dc_web_remote ps dbic-api
+```
+
+需要回退到升级前 0.8.0 时，使用上面函数，仅切回 API；旧版没有网页，数据库内容保持：
+
+```bash
+docker tag dbic-lab-dbic-api:rollback-pre-web-a683dcd dbic-lab-dbic-api:latest
+dc_web_remote up -d --no-deps --no-build --pull never --force-recreate --wait --wait-timeout 120 dbic-api
+```
+
+回退镜像身份已与原容器镜像比对，未实际回退。后续网页 V1.1 / M5 不在本次发布范围内。
 
 ## 限制与回退
 
@@ -153,7 +232,7 @@ dc_web up -d --no-deps --no-build --pull never --force-recreate --wait dbic-api
 - 创建请求响应丢失时，服务可能已经创建任务；页面不自动重发。反馈结果未知时需先刷新核实。
 - 后台任务仍为原有进程内执行方式，不承诺服务重启后的可靠续跑。
 - Redis 外部审计缺失、其他数据库采样覆盖限制仍如实展示，不通过 UI 消除 partial。
-- CI 步骤已加入；以下本地验收不包含 GitHub Actions 结果，发布时另行核对；远程/AMD64 网页未实测。
+- GitHub CI 与原生 AMD64 远程网页已单独验证，见上面的远程发布记录；尚无压力或多用户容量验证。
 
 旧运行容器引用的镜像对象无法再次打标签（Docker 返回 No such image）。已从已提交的
 `178cc62` 源码导出到独立临时目录并构建 `dbic-lab-dbic-api:rollback-pre-web-v1`，

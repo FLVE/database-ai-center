@@ -1,4 +1,5 @@
 from dbic.core.models import TaskDetail, ToolResult, utc_now
+from dbic.core.task_history import TaskSummary, task_page
 
 
 class FakeStore:
@@ -27,6 +28,29 @@ class FakeStore:
 
     async def get_evidence(self, task_id):
         return self.evidence.get(task_id, [])
+
+    async def list_tasks(self, query):
+        position = query.position
+        tasks = [
+            task
+            for task in self.tasks.values()
+            if (query.instance_id is None or task.instance_id == query.instance_id)
+            and (query.status is None or task.status == query.status)
+            and (query.created_from is None or task.created_at >= query.created_from)
+            and (query.created_until is None or task.created_at < query.created_until)
+            and (
+                position is None
+                or (task.created_at, task.task_id) < (position.created_at, position.task_id)
+            )
+        ]
+        tasks.sort(key=lambda task: (task.created_at, task.task_id), reverse=True)
+        return task_page(
+            query,
+            [
+                TaskSummary.model_validate(task.model_dump(include=set(TaskSummary.model_fields)))
+                for task in tasks[: query.limit + 1]
+            ],
+        )
 
     async def update_task(self, task, expected):
         if self.tasks[task.task_id].status != expected:

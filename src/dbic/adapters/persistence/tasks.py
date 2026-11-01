@@ -3,7 +3,7 @@ import threading
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Engine, MetaData, Table, insert, select, update
+from sqlalchemy import Engine, MetaData, Table, insert, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from dbic.core.models import (
@@ -17,6 +17,7 @@ from dbic.core.models import (
     TaskStatus,
     utc_now,
 )
+from dbic.core.task_history import TaskListQuery, TaskPage, TaskSummary, task_page
 
 
 def task_values(task: DiagnosticTask) -> dict[str, Any]:
@@ -136,6 +137,42 @@ class PostgresTaskStore:
                         ).mappings()
                     ],
                 )
+
+        return await asyncio.to_thread(operation)
+
+    async def list_tasks(self, query: TaskListQuery) -> TaskPage:
+        def operation() -> TaskPage:
+            table = self.table("diagnostic_tasks")
+            statement = select(
+                table.c.id.label("task_id"),
+                table.c.instance_id,
+                table.c.database_type,
+                table.c.problem_type,
+                table.c.status,
+                table.c.created_at,
+                table.c.finished_at,
+            )
+            if query.instance_id is not None:
+                statement = statement.where(table.c.instance_id == query.instance_id)
+            if query.status is not None:
+                statement = statement.where(table.c.status == query.status.value)
+            if query.created_from is not None:
+                statement = statement.where(table.c.created_at >= query.created_from)
+            if query.created_until is not None:
+                statement = statement.where(table.c.created_at < query.created_until)
+            if position := query.position:
+                statement = statement.where(
+                    tuple_(table.c.created_at, table.c.id)
+                    < tuple_(position.created_at, position.task_id)
+                )
+            statement = statement.order_by(table.c.created_at.desc(), table.c.id.desc()).limit(
+                query.limit + 1
+            )
+            with self.engine.connect() as conn:
+                rows = [
+                    TaskSummary.model_validate(dict(r)) for r in conn.execute(statement).mappings()
+                ]
+            return task_page(query, rows)
 
         return await asyncio.to_thread(operation)
 

@@ -304,6 +304,11 @@ Playwright 仅用于开发验收，执行 `npm ci && npx playwright install chro
 真实本机 lab 浏览器验证用 `node scripts/verify_web.mjs`，会归档诊断任务及验收反馈。
 运行与限制见 [网页验收](web-v1-validation.md)。网页上线不代表 M5 或生产权限已开放。
 
+网页 V1 远程验收后，用户授权 V1.1 任务历史、筛选与分页，见 [实施范围](web-v11-plan.md)。
+新增只读列表端点和 0003_web_history 索引迁移；本机升级必须先执行迁移再切换 API。
+不在本次自动提交/发布，不进入 M5。
+本地实现、真实 PostgreSQL、浏览器与运行验证结果见 [V1.1 验收](web-v11-validation.md)。
+
 - 定时任务/告警 webhook、任务去重、反馈、历史案例回放、准确性/证据完整性评测、限流及安全审计。
 - 按用户当前顺序，M4 整体验收后开始网页界面；这不自动授权受控修复流程或生产接入。
 

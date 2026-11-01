@@ -1,14 +1,15 @@
 import re
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from pydantic import Field, field_validator, model_validator
 
 from dbic.api.service import DiagnosticService
 from dbic.core.history import validate_window
 from dbic.core.models import Evidence, Feedback, Model, TaskDetail, TaskStatus, TimeWindow
 from dbic.core.planner import UnsupportedDiagnosis
+from dbic.core.task_history import TaskListQuery, TaskPage
 
 router = APIRouter(prefix="/api/v1/diagnoses")
 
@@ -81,6 +82,12 @@ async def create(body: CreateDiagnosis, request: Request, background: Background
         raise HTTPException(429, "Local task capacity exceeded") from exc
     background.add_task(runtime.execute, task.task_id)
     return Accepted(task_id=task.task_id, status=task.status)
+
+
+@router.get("", response_model=TaskPage, summary="List archived and active diagnostic tasks")
+async def history(query: Annotated[TaskListQuery, Query()], request: Request) -> TaskPage:
+    """Single-user task history, newest first. Cursor pagination has no total count."""
+    return await service(request).store.list_tasks(query)
 
 
 @router.get("/{task_id}", response_model=TaskDetail)

@@ -16,6 +16,10 @@ Token 仅在当前页面内存中使用，刷新需重新输入。已有任务�
 本次会话列表不等于全部历史记录。部署、验证及已知限制见 [网页验收](docs/web-v1-validation.md)。
 页面采用实例概览、诊断对话框、报告标签页与证据抽屉；参考项目和设计取舍见 [界面研究](docs/web-design-research.md)。
 
+网页 V1.1（0.10.0）已在本机实现任务历史、实例/状态/创建时间筛选和游标分页。
+点击“任务历史”可读取服务器记录，刷新重登后仍可查找；升级需先执行 `0003_web_history` 索引迁移。
+本机命令、测试结果、限制及回退见 [V1.1 验收](docs/web-v11-validation.md)。远程当前仍为 0.9.0。
+
 ## 本阶段范围
 
 - Python 3.12、FastAPI、Pydantic v2、SQLAlchemy 2、psycopg 3、Alembic。

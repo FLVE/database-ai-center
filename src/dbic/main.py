@@ -122,7 +122,7 @@ def create_app(
 
     app = FastAPI(
         title="Database AI Center",
-        version="0.9.0",
+        version="0.10.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
